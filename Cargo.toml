@@ -1,6 +1,15 @@
 [package]
-name = "pectra-analyzer-backend"
+name = "pectralizer"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# alloy
+alloy-primitives = "0.8.25"
+alloy-provider = "0.13.0"
+alloy-consensus = "0.13.0"
+
+# misc
+tokio = { version = "1.44.2", features = ["full"] }
+dotenv = "0.15.0"
+url = "2.5.4"
