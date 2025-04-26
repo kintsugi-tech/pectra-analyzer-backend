@@ -16,7 +16,11 @@ revm = "21.0.0"
 reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", tag = "v1.3.7" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth.git", tag = "v1.3.7" }
 
+# axum
+axum = "0.8.3"
+
 # misc
 tokio = { version = "1.44.2", features = ["full"] }
 dotenv = "0.15.0"
 url = "2.5.4"
+serde = "1.0.219"
