@@ -36,11 +36,8 @@ pub async fn tx_handler(Query(query): Query<TxHashQuery>) -> Json<TxAnalysisResp
     // get total gas used
     let gas_used = receipt.gas_used;
     // compute EIP-7623 calldata gas
-    let eip_7623_calldata_gas = compute_calldata_gas(calldata);
-    // check if EIP-7623 is effective
-    let is_eip_7623_effective = eip_7623_calldata_gas + BASE_STIPEND > gas_used;
+    let eip_7623_calldata_gas = compute_calldata_gas(calldata) + BASE_STIPEND;
     Json(TxAnalysisResponse {
-        is_eip_7623_effective,
         gas_used,
         eip_7623_calldata_gas,
     })
