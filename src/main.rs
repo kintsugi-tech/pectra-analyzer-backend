@@ -73,8 +73,10 @@ mod tests {
             println!("blob_gas_used: {}", blob_gas_used);
             let blob_data = tx.blob_versioned_hashes().unwrap();
             // get blob data
-            // then call `compute_calldata_gas` with the blob data
-            // and at this point we can return calldata cost vs blob cost
+            // then call `get_tokens_in_calldata` with the blob data
+            // compute old calldata cost with the pre eip-7623 formula
+            // also compute new calldata cost with the eip-7623 formula
+            // and at this point we can return calldata cost (old and new) vs blob cost
         }
     }
 }
