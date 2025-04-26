@@ -2793,6 +2793,7 @@ dependencies = [
  "reth-chainspec",
  "reth-evm-ethereum",
  "revm",
+ "serde",
  "tokio",
  "url",
 ]
