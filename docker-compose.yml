@@ -4,9 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     environment:
       - RUST_LOG=info
+      - PORT=${PORT:-3000}
     env_file:
       - .env
     volumes:
