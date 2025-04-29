@@ -5,6 +5,13 @@ use pectralizer::server::handlers::{root_handler, tx_handler};
 async fn main() {
     // load .env environment variables
     dotenv::dotenv().ok();
+
+    // Validate required environment variables
+    if std::env::var("ETHEREUM_PROVIDER").is_err() {
+        eprintln!("Error: ETHEREUM_PROVIDER environment variable is not set");
+        std::process::exit(1);
+    }
+
     // build the application
     let app = Router::new()
         .route("/", get(root_handler))
