@@ -24,23 +24,11 @@ jobs:
       - name: Build for Linux
         run: cargo build --release
 
-      - name: Build for Windows
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          cargo build --release --target x86_64-pc-windows-msvc
-
-      - name: Build for macOS
-        run: |
-          rustup target add x86_64-apple-darwin
-          cargo build --release --target x86_64-apple-darwin
-
       - name: Prepare release assets
         run: |
           mkdir -p release
           cp target/release/pectralizer release/pectralizer-linux-amd64
-          cp target/x86_64-pc-windows-msvc/release/pectralizer.exe release/pectralizer-windows-amd64.exe
-          cp target/x86_64-apple-darwin/release/pectralizer release/pectralizer-macos-amd64
-          chmod +x release/pectralizer-linux-amd64 release/pectralizer-macos-amd64
+           chmod +x release/pectralizer-linux-amd64
 
       - name: Create Release
         id: create_release
@@ -48,8 +36,6 @@ jobs:
         with:
           files: |
             release/pectralizer-linux-amd64
-            release/pectralizer-windows-amd64.exe
-            release/pectralizer-macos-amd64
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
