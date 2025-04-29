@@ -29,7 +29,7 @@ async fn main() {
     println!("📝 Available endpoints:");
     println!("   - GET  /     - Welcome message");
     println!("   - GET  /tx   - Transaction analysis");
-    
+
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
