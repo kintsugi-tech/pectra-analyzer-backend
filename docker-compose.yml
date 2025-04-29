@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  spectralizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - RUST_LOG=info
+    env_file:
+      - .env
+    volumes:
+      - .:/usr/src/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/usr/src/app/target
+
+volumes:
+  cargo-cache:
+  target-cache:
