@@ -1,0 +1,20 @@
+services:
+  spectralizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - RUST_LOG=info
+      - PORT=${PORT:-3000}
+    env_file:
+      - .env
+    volumes:
+      - .:/usr/src/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/usr/src/app/target
+
+volumes:
+  cargo-cache:
+  target-cache:
