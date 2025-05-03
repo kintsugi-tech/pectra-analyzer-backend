@@ -2865,7 +2865,6 @@ dependencies = [
  "revm",
  "serde",
  "tokio",
- "url",
 ]
 
 [[package]]

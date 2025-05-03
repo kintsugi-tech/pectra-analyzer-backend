@@ -1,34 +1,32 @@
 use super::types::{TxAnalysisResponse, TxHashQuery};
 use crate::{
-    provider::blob_provider::BlobProvider,
+    provider::ProviderState,
     utils::{compute_calldata_gas, compute_legacy_calldata_gas},
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{FixedBytes, hex::FromHex};
-use alloy_provider::{Provider, ProviderBuilder};
-use axum::{Json, extract::Query};
-use std::env;
-use url::Url;
+use axum::{Json, extract::Query, extract::State};
 
 pub async fn root_handler() -> &'static str {
     "Welcome to the pectralizer api!"
 }
 
-pub async fn tx_handler(Query(query): Query<TxHashQuery>) -> Json<TxAnalysisResponse> {
-    // ethereum infura endpoint
-    let ethereum_infura_url = env::var("ETHEREUM_PROVIDER").unwrap();
-    // create provider
-    let provider = ProviderBuilder::new().on_http(Url::parse(&ethereum_infura_url).unwrap());
+pub async fn tx_handler(
+    State(provider_state): State<ProviderState>,
+    Query(query): Query<TxHashQuery>,
+) -> Json<TxAnalysisResponse> {
     // transform tx hash into a fixed bytes
     let tx_hash_bytes = FixedBytes::from_hex(&query.tx_hash).unwrap();
     // get tx
-    let tx = provider
+    let tx = provider_state
+        .ethereum_provider
         .get_transaction_by_hash(tx_hash_bytes)
         .await
         .unwrap()
         .unwrap();
     // get receipt
-    let receipt = provider
+    let receipt = provider_state
+        .ethereum_provider
         .get_transaction_receipt(tx_hash_bytes)
         .await
         .unwrap()
@@ -41,11 +39,11 @@ pub async fn tx_handler(Query(query): Query<TxHashQuery>) -> Json<TxAnalysisResp
         let blob_gas_price = receipt.blob_gas_price.unwrap(); // safe unwrap as it's an eip4844 tx
         let blob_data = tx.blob_versioned_hashes().unwrap();
         // get blob data
-        let blob_provider = BlobProvider::default();
         let mut total_legacy_calldata_gas = 0;
         let mut total_eip_7623_calldata_gas = 0;
         for blob_versioned_hash in blob_data {
-            let blob_data = blob_provider
+            let blob_data = provider_state
+                .blob_provider
                 .blob_data(&blob_versioned_hash.to_string())
                 .await
                 .unwrap();
