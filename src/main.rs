@@ -1,5 +1,8 @@
 use axum::{Router, routing::get};
-use pectralizer::server::handlers::{root_handler, tx_handler};
+use pectralizer::{
+    provider::ProviderState,
+    server::handlers::{root_handler, tx_handler},
+};
 
 #[tokio::main]
 async fn main() {
@@ -7,10 +10,11 @@ async fn main() {
     dotenv::dotenv().ok();
 
     // Validate required environment variables
-    if std::env::var("ETHEREUM_PROVIDER").is_err() {
-        eprintln!("Error: ETHEREUM_PROVIDER environment variable is not set");
-        std::process::exit(1);
-    }
+    let ethereum_provider_url = std::env::var("ETHEREUM_PROVIDER")
+        .expect("ETHEREUM_PROVIDER environment variable is not set");
+
+    // Initialize shared provider state
+    let provider_state = ProviderState::new(&ethereum_provider_url).await;
 
     // Get port from environment or use default
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -19,7 +23,8 @@ async fn main() {
     // build the application
     let app = Router::new()
         .route("/", get(root_handler))
-        .route("/tx", get(tx_handler));
+        .route("/tx", get(tx_handler))
+        .with_state(provider_state);
 
     // run our app with hyper, listening globally on configured port
     let addr = format!("0.0.0.0:{}", port);
@@ -36,67 +41,50 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use alloy_consensus::{Transaction, Typed2718};
-    use alloy_primitives::{FixedBytes, hex::FromHex};
-    use alloy_provider::{Provider, ProviderBuilder};
-    use axum::extract::Query;
+    use axum::extract::{Query, State};
     use pectralizer::{
-        server::{handlers::tx_handler, types::TxHashQuery},
-        utils::{BASE_STIPEND, BLOB_SIZE, STANDARD_TOKEN_COST, compute_calldata_gas},
+        provider::ProviderState,
+        server::{
+            handlers::tx_handler,
+            types::{TxAnalysisResponse, TxHashQuery},
+        },
     };
-    use std::env;
-    use url::Url;
 
     #[tokio::test]
-    async fn test_tx_handler() {
+    async fn test_eip1559_tx() {
+        let provider_state = ProviderState::new("https://eth.merkle.io").await;
+        let query = TxHashQuery {
+            tx_hash: "0xd367c556c43058a3718362a0b2e624471c69e7f00846fe4474469a9895310bbd"
+                .to_string(),
+        };
+        let response = tx_handler(State(provider_state), Query(query)).await;
+        let expected_response = TxAnalysisResponse {
+            gas_used: 74557,
+            gas_price: 1014646161,
+            blob_gas_price: 0,
+            blob_gas_used: 0,
+            eip_7623_calldata_gas: 13430,
+            legacy_calldata_gas: 5372,
+        };
+        assert_eq!(response.0, expected_response);
+    }
+
+    #[tokio::test]
+    async fn test_blob_tx() {
+        let provider_state = ProviderState::new("https://eth.merkle.io").await;
         let query = TxHashQuery {
             tx_hash: "0xf9b3708d3c8a07f7c26bbd336c2746977787b126fbc95e2df816a74d599957c4"
                 .to_string(),
         };
-        let response = tx_handler(Query(query)).await;
-        println!("response: {:?}", response.0);
-    }
-
-    #[tokio::test]
-    async fn test_provider() {
-        // ethereum infura endpoint
-        let ethereum_infura_url = env::var("ETHEREUM_PROVIDER").unwrap();
-        // create provider
-        let provider = ProviderBuilder::new().on_http(Url::parse(&ethereum_infura_url).unwrap());
-        // transform tx hash into a fixed bytes
-        let tx_hash = "0xf9b3708d3c8a07f7c26bbd336c2746977787b126fbc95e2df816a74d599957c4";
-        let tx_hash_bytes = FixedBytes::from_hex(&tx_hash).unwrap();
-        // get tx
-        let tx = provider
-            .get_transaction_by_hash(tx_hash_bytes)
-            .await
-            .unwrap()
-            .unwrap();
-        // get calldata
-        let calldata = tx.input();
-        // get receipt
-        let receipt = provider
-            .get_transaction_receipt(tx_hash_bytes)
-            .await
-            .unwrap()
-            .unwrap();
-        // get total gas used
-        let gas_used = receipt.gas_used;
-        // compute EIP-7623 calldata gas
-        let eip_7623_calldata_gas = compute_calldata_gas(calldata) + BASE_STIPEND;
-        println!("gas_used: {}", gas_used);
-        println!("eip_7623_calldata_gas: {}", eip_7623_calldata_gas);
-        let is_blob = tx.is_eip4844();
-        println!("is_blob: {}", is_blob);
-        if is_blob {
-            let blob_gas_used = tx.blob_gas_used().unwrap();
-            println!("blob_gas_used: {}", blob_gas_used);
-            let blob_data = tx.blob_versioned_hashes().unwrap();
-            // get blob data
-            // then call `get_tokens_in_calldata` with the blob data
-            // compute old calldata cost with the pre eip-7623 formula
-            // also compute new calldata cost with the eip-7623 formula
-            // and at this point we can return calldata cost (old and new) vs blob cost
-        }
+        let response = tx_handler(State(provider_state), Query(query)).await;
+        let expected_response = TxAnalysisResponse {
+            gas_used: 21000,
+            gas_price: 5767832048,
+            blob_gas_price: 2793617096,
+            blob_gas_used: 393216,
+            eip_7623_calldata_gas: 15574830,
+            legacy_calldata_gas: 6229932,
+        };
+        assert_eq!(response.0, expected_response);
     }
 }
