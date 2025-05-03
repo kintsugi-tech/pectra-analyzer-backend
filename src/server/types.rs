@@ -8,7 +8,7 @@ pub struct TxHashQuery {
 }
 
 /// Response structure for the tx handler.
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct TxAnalysisResponse {
     /// Total gas used by the transaction.
     pub gas_used: u64,

@@ -44,17 +44,47 @@ mod tests {
     use axum::extract::{Query, State};
     use pectralizer::{
         provider::ProviderState,
-        server::{handlers::tx_handler, types::TxHashQuery},
+        server::{
+            handlers::tx_handler,
+            types::{TxAnalysisResponse, TxHashQuery},
+        },
     };
 
     #[tokio::test]
-    async fn test_tx_handler() {
+    async fn test_eip1559_tx() {
+        let provider_state = ProviderState::new("https://eth.merkle.io").await;
+        let query = TxHashQuery {
+            tx_hash: "0xd367c556c43058a3718362a0b2e624471c69e7f00846fe4474469a9895310bbd"
+                .to_string(),
+        };
+        let response = tx_handler(State(provider_state), Query(query)).await;
+        let expected_response = TxAnalysisResponse {
+            gas_used: 74557,
+            gas_price: 1014646161,
+            blob_gas_price: 0,
+            blob_gas_used: 0,
+            eip_7623_calldata_gas: 13430,
+            legacy_calldata_gas: 5372,
+        };
+        assert_eq!(response.0, expected_response);
+    }
+
+    #[tokio::test]
+    async fn test_blob_tx() {
         let provider_state = ProviderState::new("https://eth.merkle.io").await;
         let query = TxHashQuery {
             tx_hash: "0xf9b3708d3c8a07f7c26bbd336c2746977787b126fbc95e2df816a74d599957c4"
                 .to_string(),
         };
         let response = tx_handler(State(provider_state), Query(query)).await;
-        println!("response: {:?}", response.0);
+        let expected_response = TxAnalysisResponse {
+            gas_used: 21000,
+            gas_price: 5767832048,
+            blob_gas_price: 2793617096,
+            blob_gas_used: 393216,
+            eip_7623_calldata_gas: 15574830,
+            legacy_calldata_gas: 6229932,
+        };
+        assert_eq!(response.0, expected_response);
     }
 }
