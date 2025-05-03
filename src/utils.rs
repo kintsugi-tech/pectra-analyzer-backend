@@ -17,3 +17,10 @@ pub fn compute_calldata_gas(calldata: &[u8]) -> u64 {
     let tokens_in_calldata = get_tokens_in_calldata(calldata, true); // TODO: check if is_istanbul spec id is correct
     TOTAL_COST_FLOOR_PER_TOKEN * tokens_in_calldata
 }
+/// It returns the gas cost of the calldata following legacy rules.
+///
+/// Link: https://eips.ethereum.org/EIPS/eip-7623
+pub fn compute_legacy_calldata_gas(calldata: &[u8]) -> u64 {
+    let tokens_in_calldata = get_tokens_in_calldata(calldata, true); // TODO: check if is_istanbul spec id is correct
+    STANDARD_TOKEN_COST * tokens_in_calldata
+}
