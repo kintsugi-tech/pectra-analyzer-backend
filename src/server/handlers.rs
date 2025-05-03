@@ -5,6 +5,7 @@ use crate::{
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{FixedBytes, hex::FromHex};
+use alloy_provider::Provider;
 use axum::{Json, extract::Query, extract::State};
 
 pub async fn root_handler() -> &'static str {

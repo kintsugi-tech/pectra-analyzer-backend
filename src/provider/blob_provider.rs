@@ -17,6 +17,8 @@ pub struct BlobData {
 pub struct BlobProvider {
     /// The reqwest client to handle connections to the blob provider.
     pub client: Client,
+    /// The blob provider endpoint url.
+    pub endpoint: String,
 }
 
 impl BlobProvider {
@@ -24,12 +26,13 @@ impl BlobProvider {
     pub fn new() -> Self {
         Self {
             client: Client::new(),
+            endpoint: BLOB_PROVIDER_URL.to_string(),
         }
     }
 
     /// Make a blob request to the provider providing the blob versioned hash.
     pub async fn blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
-        let url = format!("{}{}", BLOB_PROVIDER_URL, blob_versioned_hash);
+        let url = format!("{}{}", self.endpoint, blob_versioned_hash);
         let response = self.client.get(url).send().await?;
         let blob_data: BlobData = response.json().await?;
         Ok(blob_data)
