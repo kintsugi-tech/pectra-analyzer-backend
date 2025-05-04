@@ -5,8 +5,8 @@ use serde::Deserialize;
 /// The url of the blob provider, aka blobscan.
 const BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
 
-#[derive(Debug, Deserialize)]
 /// The data of the blob.
+#[derive(Debug, Deserialize)]
 pub struct BlobData {
     /// The data field of the blob.
     pub data: Bytes,
