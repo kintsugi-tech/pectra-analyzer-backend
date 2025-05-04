@@ -99,7 +99,7 @@ pub async fn tx_handler(
 ) -> Result<Json<TxAnalysisResponse>, HandlerError> {
     // transform tx hash into a fixed bytes
     let tx_hash_bytes = FixedBytes::from_hex(&query.tx_hash)
-        .map_err(|_| HandlerError::InvalidHex(query.tx_hash.clone()))?;
+        .map_err(|_| HandlerError::InvalidHex(query.tx_hash))?;
     let tx_analysis = analyze_transaction(&provider_state, tx_hash_bytes).await?;
     Ok(Json(tx_analysis))
 }
@@ -109,7 +109,7 @@ pub async fn contract_handler(
     Query(query): Query<ContractQuery>,
 ) -> Result<Json<ContractAnalysisResponse>, HandlerError> {
     let contract_address = Address::from_hex(&query.contract_address)
-        .map_err(|_| HandlerError::InvalidHex(query.contract_address.clone()))?;
+        .map_err(|_| HandlerError::InvalidHex(query.contract_address))?;
     let last_block_number = provider_state
         .ethereum_provider
         .get_block_number()
