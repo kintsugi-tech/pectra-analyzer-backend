@@ -2864,6 +2864,7 @@ dependencies = [
  "reth-evm-ethereum",
  "revm",
  "serde",
+ "thiserror",
  "tokio",
 ]
 

@@ -5,22 +5,24 @@ use pectralizer::{
 };
 
 #[tokio::main]
-async fn main() {
+async fn main() -> eyre::Result<()> {
     // load .env environment variables
     dotenv::dotenv().ok();
 
-    // Validate required environment variables
+    // validate required environment variables
     let ethereum_provider_url = std::env::var("ETHEREUM_PROVIDER")
-        .expect("ETHEREUM_PROVIDER environment variable is not set");
+        .map_err(|_| eyre::eyre!("ETHEREUM_PROVIDER environment variable is not set"))?;
     let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
-        .expect("ETHERSCAN_API_KEY environment variable is not set");
+        .map_err(|_| eyre::eyre!("ETHERSCAN_API_KEY environment variable is not set"))?;
 
-    // Initialize shared provider state
+    // initialize shared provider state
     let provider_state = ProviderState::new(&ethereum_provider_url, &etherscan_api_key).await;
 
-    // Get port from environment or use default
+    // get port from environment or use default
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let port: u16 = port.parse().expect("PORT must be a valid number");
+    let port: u16 = port
+        .parse()
+        .map_err(|_| eyre::eyre!("PORT must be a valid number"))?;
 
     // build the application
     let app = Router::new()
@@ -39,8 +41,9 @@ async fn main() {
     println!("   - GET  /tx         - Transaction analysis");
     println!("   - GET  /contract   - Contract analysis");
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -62,7 +65,9 @@ mod tests {
             tx_hash: "0xd367c556c43058a3718362a0b2e624471c69e7f00846fe4474469a9895310bbd"
                 .to_string(),
         };
-        let response = tx_handler(State(provider_state), Query(query)).await;
+        let response = tx_handler(State(provider_state), Query(query))
+            .await
+            .unwrap();
         let expected_response = TxAnalysisResponse {
             gas_used: 74557,
             gas_price: 1014646161,
@@ -82,7 +87,9 @@ mod tests {
             tx_hash: "0xf9b3708d3c8a07f7c26bbd336c2746977787b126fbc95e2df816a74d599957c4"
                 .to_string(),
         };
-        let response = tx_handler(State(provider_state), Query(query)).await;
+        let response = tx_handler(State(provider_state), Query(query))
+            .await
+            .unwrap();
         let expected_response = TxAnalysisResponse {
             gas_used: 21000,
             gas_price: 5767832048,
