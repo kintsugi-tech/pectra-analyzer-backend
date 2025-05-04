@@ -52,8 +52,8 @@ mod tests {
     use pectralizer::{
         provider::ProviderState,
         server::{
-            handlers::tx_handler,
-            types::{TxAnalysisResponse, TxHashQuery},
+            handlers::{contract_handler, tx_handler},
+            types::{ContractQuery, TxAnalysisResponse, TxHashQuery},
         },
     };
 
@@ -99,5 +99,22 @@ mod tests {
             legacy_calldata_gas: 6229932,
         };
         assert_eq!(response.0, expected_response);
+    }
+
+    #[tokio::test]
+    async fn test_contract_handler() {
+        // load .env environment variables
+        dotenv::dotenv().ok();
+        let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
+            .map_err(|_| eyre::eyre!("ETHERSCAN_API_KEY environment variable is not set"))
+            .unwrap();
+        let provider_state = ProviderState::new("https://eth.merkle.io", &etherscan_api_key).await;
+        let query = ContractQuery {
+            contract_address: "0x41dDf7fC14a579E0F3f2D698e14c76d9d486B9F7".to_string(),
+        };
+        let response = contract_handler(State(provider_state), Query(query))
+            .await
+            .unwrap();
+        assert_eq!(response.0.txs_analysis.len(), 5);
     }
 }
