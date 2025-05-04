@@ -23,3 +23,17 @@ pub struct TxAnalysisResponse {
     /// Legacy calldata gas.
     pub legacy_calldata_gas: u64,
 }
+
+/// Query parameters for the contract handler.
+#[derive(Deserialize, Debug)]
+pub struct ContractQuery {
+    /// The contract address to analyze.
+    pub contract_address: String,
+}
+
+/// Response structure for the contract handler.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct ContractAnalysisResponse {
+    /// The list of transactions analysis.
+    pub txs_analysis: Vec<TxAnalysisResponse>,
+}

@@ -1,12 +1,13 @@
-use super::types::{TxAnalysisResponse, TxHashQuery};
+use super::types::{ContractAnalysisResponse, ContractQuery, TxAnalysisResponse, TxHashQuery};
 use crate::{
     provider::ProviderState,
     utils::{compute_calldata_gas, compute_legacy_calldata_gas},
 };
 use alloy_consensus::{Transaction, Typed2718};
-use alloy_primitives::{FixedBytes, hex::FromHex};
+use alloy_primitives::{Address, FixedBytes, TxHash, hex::FromHex};
 use alloy_provider::Provider;
 use axum::{Json, extract::Query, extract::State};
+use reth_chainspec::NamedChain;
 
 pub async fn root_handler() -> &'static str {
     "Welcome to the pectralizer api!"
@@ -45,7 +46,7 @@ pub async fn tx_handler(
         for blob_versioned_hash in blob_data {
             let blob_data = provider_state
                 .blob_provider
-                .blob_data(&blob_versioned_hash.to_string())
+                .get_blob_data(&blob_versioned_hash.to_string())
                 .await
                 .unwrap();
             // compute old calldata cost with the pre eip-7623 formula
@@ -79,4 +80,44 @@ pub async fn tx_handler(
             legacy_calldata_gas,
         })
     }
+}
+
+pub async fn contract_handler(
+    State(provider_state): State<ProviderState>,
+    Query(query): Query<ContractQuery>,
+) -> Json<ContractAnalysisResponse> {
+    let contract_address = Address::from_hex(&query.contract_address).unwrap();
+    let last_block_number = provider_state
+        .ethereum_provider
+        .get_block_number()
+        .await
+        .unwrap();
+    // 700k blocks are roughly 3 months in Ethereum mainnet with 12s block time
+    let start_block = last_block_number - 700_000;
+    let chain_id = NamedChain::Mainnet.into();
+    let internal_txs = provider_state
+        .etherscan_provider
+        .get_internal_txs(contract_address, chain_id, start_block, last_block_number)
+        .await
+        .unwrap();
+    let internal_txs: Vec<TxHash> = internal_txs.result.iter().map(|tx| tx.hash).collect();
+    let normal_txs = provider_state
+        .etherscan_provider
+        .get_normal_txs(contract_address, chain_id, start_block, last_block_number)
+        .await
+        .unwrap();
+    let normal_txs: Vec<TxHash> = normal_txs.result.iter().map(|tx| tx.hash).collect();
+    // concatenate internal and normal tx hashes
+    let tx_hashes = [internal_txs, normal_txs].concat();
+    let mut txs_analysis = vec![];
+    for tx_hash in tx_hashes {
+        let tx_query = TxHashQuery {
+            tx_hash: tx_hash.to_string(),
+        };
+        let tx_response = tx_handler(State(provider_state.clone()), Query(tx_query))
+            .await
+            .0;
+        txs_analysis.push(tx_response);
+    }
+    Json(ContractAnalysisResponse { txs_analysis })
 }

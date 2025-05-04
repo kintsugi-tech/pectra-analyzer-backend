@@ -5,8 +5,8 @@ use serde::Deserialize;
 /// The url of the blob provider, aka blobscan.
 const BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
 
-#[derive(Debug, Deserialize)]
 /// The data of the blob.
+#[derive(Debug, Deserialize)]
 pub struct BlobData {
     /// The data field of the blob.
     pub data: Bytes,
@@ -31,7 +31,7 @@ impl BlobProvider {
     }
 
     /// Make a blob request to the provider providing the blob versioned hash.
-    pub async fn blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
+    pub async fn get_blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
         let url = format!("{}{}", self.endpoint, blob_versioned_hash);
         let response = self.client.get(url).send().await?;
         let blob_data: BlobData = response.json().await?;
