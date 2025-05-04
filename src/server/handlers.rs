@@ -46,7 +46,7 @@ pub async fn tx_handler(
         for blob_versioned_hash in blob_data {
             let blob_data = provider_state
                 .blob_provider
-                .blob_data(&blob_versioned_hash.to_string())
+                .get_blob_data(&blob_versioned_hash.to_string())
                 .await
                 .unwrap();
             // compute old calldata cost with the pre eip-7623 formula

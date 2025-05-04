@@ -31,7 +31,7 @@ impl BlobProvider {
     }
 
     /// Make a blob request to the provider providing the blob versioned hash.
-    pub async fn blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
+    pub async fn get_blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
         let url = format!("{}{}", self.endpoint, blob_versioned_hash);
         let response = self.client.get(url).send().await?;
         let blob_data: BlobData = response.json().await?;
