@@ -13,7 +13,7 @@ use axum::{Json, extract::Query, extract::State};
 use reth_chainspec::NamedChain;
 
 pub async fn root_handler() -> &'static str {
-    "Welcome to the pectralizer api!"
+    concat!("Welcome to the pectralizer api v", env!("CARGO_PKG_VERSION"), "!")
 }
 
 async fn analyze_transaction(
