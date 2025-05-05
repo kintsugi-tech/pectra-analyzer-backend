@@ -3,6 +3,7 @@ use pectralizer::{
     provider::ProviderState,
     server::handlers::{contract_handler, root_handler, tx_handler},
 };
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -29,6 +30,7 @@ async fn main() -> eyre::Result<()> {
         .route("/", get(root_handler))
         .route("/tx", get(tx_handler))
         .route("/contract", get(contract_handler))
+        .layer(CorsLayer::permissive())
         .with_state(provider_state);
 
     // run our app with hyper, listening globally on configured port
