@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p release
           cp target/release/pectralizer release/pectralizer-linux-amd64
-           chmod +x release/pectralizer-linux-amd64
+          chmod +x release/pectralizer-linux-amd64
 
       - name: Create Release
         id: create_release
