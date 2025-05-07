@@ -113,7 +113,17 @@ pub async fn contract_handler(
     Query(query): Query<ContractQuery>,
 ) -> Result<Json<ContractAnalysisResponse>, HandlerError> {
     let contract_address = Address::from_hex(&query.contract_address)
-        .map_err(|_| HandlerError::InvalidHex(query.contract_address))?;
+        .map_err(|_| HandlerError::InvalidHex(query.contract_address.clone()))?;
+    // if EOA, return error
+    if provider_state
+        .ethereum_provider
+        .get_code_at(contract_address)
+        .await
+        .map_err(|_| HandlerError::ProviderError("Failed to get code at".to_string()))?
+        .is_empty()
+    {
+        return Err(HandlerError::InvalidContract(query.contract_address));
+    }
     let last_block_number = provider_state
         .ethereum_provider
         .get_block_number()
