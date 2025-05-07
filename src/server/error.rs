@@ -17,7 +17,7 @@ pub enum HandlerError {
     ReceiptNotFound(String),
     #[error("Blob data not found: {0}")]
     BlobDataNotFound(String),
-    #[error("Contract is an EOA")]
+    #[error("Contract is an EOA: {0}")]
     InvalidContract(String),
 }
 
