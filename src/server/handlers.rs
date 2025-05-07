@@ -49,6 +49,18 @@ async fn analyze_transaction(
     // get total gas used
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
+    let maybe_block_hash = receipt.block_hash;
+    let mut timestamp = None;
+    if let Some(block_hash) = maybe_block_hash {
+        timestamp = provider_state
+            .ethereum_provider
+            .get_block_by_hash(block_hash)
+            .await
+            .map_err(|e| {
+                HandlerError::ProviderError(format!("Failed to get block by hash: {}", e))
+            })?
+            .map(|block| block.header.timestamp);
+    }
     if tx.is_eip4844() {
         let blob_gas_used = tx.blob_gas_used().unwrap(); // safe unwrap as it's an eip4844 tx
         let blob_gas_price = receipt.blob_gas_price.unwrap(); // safe unwrap as it's an eip4844 tx
@@ -72,6 +84,7 @@ async fn analyze_transaction(
             total_eip_7623_calldata_gas += eip7623_calldata_cost;
         }
         Ok(TxAnalysisResponse {
+            timestamp,
             blob_gas_used,
             gas_used,
             gas_price,
@@ -87,6 +100,7 @@ async fn analyze_transaction(
         // compute legacy calldata gas
         let legacy_calldata_gas = compute_legacy_calldata_gas(calldata);
         Ok(TxAnalysisResponse {
+            timestamp,
             blob_gas_used: 0,
             gas_used,
             gas_price,
@@ -149,9 +163,12 @@ pub async fn contract_handler(
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
     tx_hashes.extend(normal_txs.result.iter().map(|tx| tx.hash));
     let mut txs_analysis = vec![];
-    for tx_hash in tx_hashes {
-        let tx_analysis = analyze_transaction(&provider_state, tx_hash).await?;
+    for tx_hash in &tx_hashes {
+        let tx_analysis = analyze_transaction(&provider_state, *tx_hash).await?;
         txs_analysis.push(tx_analysis);
     }
-    Ok(Json(ContractAnalysisResponse { txs_analysis }))
+    Ok(Json(ContractAnalysisResponse {
+        tx_list: tx_hashes,
+        txs_analysis,
+    }))
 }
