@@ -1,3 +1,4 @@
+use alloy_primitives::TxHash;
 use serde::{Deserialize, Serialize};
 
 /// Query parameters for the tx handler.
@@ -10,6 +11,10 @@ pub struct TxHashQuery {
 /// Response structure for the tx handler.
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct TxAnalysisResponse {
+    /// The timestamp of the transaction.
+    ///
+    /// None if the transaction is not included in a block yet.
+    pub timestamp: Option<u64>,
     /// Total gas used by the transaction.
     pub gas_used: u64,
     /// Gas price used by the transaction.
@@ -34,6 +39,8 @@ pub struct ContractQuery {
 /// Response structure for the contract handler.
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct ContractAnalysisResponse {
+    /// The list of transactions hash included in the analysis.
+    pub tx_list: Vec<TxHash>,
     /// The list of transactions analysis.
     pub txs_analysis: Vec<TxAnalysisResponse>,
 }

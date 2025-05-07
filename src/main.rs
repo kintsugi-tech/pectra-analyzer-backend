@@ -71,6 +71,7 @@ mod tests {
             .await
             .unwrap();
         let expected_response = TxAnalysisResponse {
+            timestamp: Some(1746290387),
             gas_used: 74557,
             gas_price: 1014646161,
             blob_gas_price: 0,
@@ -93,6 +94,7 @@ mod tests {
             .await
             .unwrap();
         let expected_response = TxAnalysisResponse {
+            timestamp: Some(1745681771),
             gas_used: 21000,
             gas_price: 5767832048,
             blob_gas_price: 2793617096,
