@@ -10,6 +10,8 @@ pub const BASE_STIPEND: u64 = 21000;
 pub const BLOB_SIZE: u64 = 128_000;
 /// The standard cost of calldata token.
 pub const STANDARD_TOKEN_COST: u64 = 4;
+/// The number of bytes in a blob.
+pub const BYTES_PER_BLOB: u64 = 131_072;
 /// It returns the gas cost of the calldata following the new EIP-7623 rules.
 ///
 /// Link: https://eips.ethereum.org/EIPS/eip-7623

@@ -71,14 +71,14 @@ mod tests {
             .await
             .unwrap();
         let expected_response = TxAnalysisResponse {
-            timestamp: Some(1746290387),
+            timestamp: 1746290387,
             gas_used: 74557,
             gas_price: 1014646161,
-            blob_gas_price: 0,
+            blob_gas_price: Some(441344044),
             blob_gas_used: 0,
             eip_7623_calldata_gas: 13430,
             legacy_calldata_gas: 5372,
-            blob_data_wei_spent: 0,
+            blob_data_wei_spent: Some(57847846535168),
             legacy_calldata_wei_spent: 5450679176892,
             eip_7623_calldata_wei_spent: 13626697942230,
         };
@@ -97,14 +97,14 @@ mod tests {
             .await
             .unwrap();
         let expected_response = TxAnalysisResponse {
-            timestamp: Some(1745681771),
+            timestamp: 1745681771,
             gas_used: 21000,
             gas_price: 5767832048,
-            blob_gas_price: 2793617096,
+            blob_gas_price: Some(2793617096),
             blob_gas_used: 393216,
             eip_7623_calldata_gas: 15574830,
             legacy_calldata_gas: 6229932,
-            blob_data_wei_spent: 1098494940020736,
+            blob_data_wei_spent: Some(1098494940020736),
             legacy_calldata_wei_spent: 35933201446460736,
             eip_7623_calldata_wei_spent: 89833003616151840,
         };

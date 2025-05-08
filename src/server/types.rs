@@ -12,15 +12,15 @@ pub struct TxHashQuery {
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct TxAnalysisResponse {
     /// The timestamp of the transaction.
-    ///
-    /// None if the transaction is not included in a block yet.
-    pub timestamp: Option<u64>,
+    pub timestamp: u64,
     /// Total gas used by the transaction.
     pub gas_used: u64,
     /// Gas price used by the transaction.
     pub gas_price: u128,
     /// Blob gas price used by the transaction.
-    pub blob_gas_price: u128,
+    ///
+    /// None if the transaction happened before Cancun hard fork.
+    pub blob_gas_price: Option<u128>,
     /// Blob gas used by the transaction.
     pub blob_gas_used: u64,
     /// EIP-7623 calldata gas.
@@ -28,7 +28,9 @@ pub struct TxAnalysisResponse {
     /// Legacy calldata gas.
     pub legacy_calldata_gas: u64,
     /// Blob data wei spent.
-    pub blob_data_wei_spent: u128,
+    ///
+    /// None if the transaction happened before Cancun hard fork.
+    pub blob_data_wei_spent: Option<u128>,
     /// Legacy calldata wei spent.
     pub legacy_calldata_wei_spent: u128,
     /// EIP-7623 calldata wei spent.
