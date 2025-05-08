@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     provider::ProviderState,
-    utils::{compute_calldata_gas, compute_legacy_calldata_gas},
+    utils::{BASE_STIPEND, compute_calldata_gas, compute_legacy_calldata_gas},
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
@@ -174,13 +174,16 @@ pub async fn contract_handler(
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
     tx_hashes.extend(normal_txs.result.iter().map(|tx| tx.hash));
-    let mut txs_analysis = vec![];
+    let mut influenced = 0;
     for tx_hash in &tx_hashes {
         let tx_analysis = analyze_transaction(&provider_state, *tx_hash).await?;
-        txs_analysis.push(tx_analysis);
+        if tx_analysis.gas_used == tx_analysis.eip_7623_calldata_gas + BASE_STIPEND {
+            // tx is influenced by eip7623
+            influenced += 1;
+        }
     }
     Ok(Json(ContractAnalysisResponse {
         tx_list: tx_hashes,
-        txs_analysis,
+        influenced,
     }))
 }
