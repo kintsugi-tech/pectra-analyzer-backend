@@ -125,6 +125,7 @@ mod tests {
         let response = contract_handler(State(provider_state), Query(query))
             .await
             .unwrap();
-        assert_eq!(response.0.txs_analysis.len(), 5);
+        assert_eq!(response.0.tx_list.len(), 5);
+        assert_eq!(response.0.influenced, 0);
     }
 }
