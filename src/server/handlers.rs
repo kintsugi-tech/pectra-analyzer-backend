@@ -6,11 +6,11 @@ use crate::{
     provider::ProviderState,
     utils::{BASE_STIPEND, BYTES_PER_BLOB, compute_calldata_gas, compute_legacy_calldata_gas},
 };
+use alloy_chains::NamedChain;
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
 use alloy_provider::Provider;
 use axum::{Json, extract::Query, extract::State};
-use reth_chainspec::NamedChain;
 
 pub async fn root_handler() -> &'static str {
     concat!(
