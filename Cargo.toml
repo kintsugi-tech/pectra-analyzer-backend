@@ -5,22 +5,19 @@ edition = "2024"
 
 [dependencies]
 # alloy
-alloy-primitives = "0.8.25"
-alloy-provider = "0.13.0"
-alloy-consensus = "0.13.0"
+alloy-primitives = "1.1.0"
+alloy-provider = "0.15.10"
+alloy-consensus = "0.15.10"
+alloy-chains = "0.2.0"
 
 # revm
-revm = "21.0.0"
-
-# reth
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth.git", tag = "v1.3.7" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth.git", tag = "v1.3.7" }
+revm = "23.1.0"
 
 # axum
-axum = "0.8.3"
+axum = "0.8.4"
 
 # misc
-tokio = { version = "1.44.2", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
 dotenv = "0.15.0"
 serde = "1.0.219"
 reqwest = { version = "0.12.15", features = ["json"] }
