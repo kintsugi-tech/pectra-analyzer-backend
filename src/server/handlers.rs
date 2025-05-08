@@ -169,31 +169,34 @@ pub async fn contract_handler(
     let start_block = last_block_number - 700_000;
     let chain_id = NamedChain::Mainnet.into();
     // collect all transaction hashes into a single Vec directly
-    let mut tx_hashes = Vec::new();
+    let mut tx_list = Vec::new();
     // get internal transactions
     let internal_txs = provider_state
         .etherscan_provider
         .get_internal_txs(contract_address, chain_id, start_block, last_block_number)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get internal txs: {}", e)))?;
-    tx_hashes.extend(internal_txs.result.iter().map(|tx| tx.hash));
+    tx_list.extend(internal_txs.result.iter().map(|tx| tx.hash));
     // get normal transactions
     let normal_txs = provider_state
         .etherscan_provider
         .get_normal_txs(contract_address, chain_id, start_block, last_block_number)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
-    tx_hashes.extend(normal_txs.result.iter().map(|tx| tx.hash));
+    tx_list.extend(normal_txs.result.iter().map(|tx| tx.hash));
     let mut influenced = 0;
-    for tx_hash in &tx_hashes {
+    let mut influenced_tx_list = Vec::with_capacity(tx_list.len());
+    for tx_hash in &tx_list {
         let tx_analysis = analyze_transaction(&provider_state, *tx_hash).await?;
         if tx_analysis.gas_used == tx_analysis.eip_7623_calldata_gas + BASE_STIPEND {
             // tx is influenced by eip7623
             influenced += 1;
+            influenced_tx_list.push(*tx_hash);
         }
     }
     Ok(Json(ContractAnalysisResponse {
-        tx_list: tx_hashes,
+        tx_list,
+        influenced_tx_list,
         influenced,
     }))
 }
