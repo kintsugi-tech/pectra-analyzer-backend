@@ -83,6 +83,9 @@ async fn analyze_transaction(
             let eip7623_calldata_cost = compute_calldata_gas(&blob_data.data);
             total_eip_7623_calldata_gas += eip7623_calldata_cost;
         }
+        let blob_data_wei_spent = blob_gas_used as u128 * blob_gas_price;
+        let legacy_calldata_wei_spent = total_legacy_calldata_gas as u128 * gas_price;
+        let eip_7623_calldata_wei_spent = total_eip_7623_calldata_gas as u128 * gas_price;
         Ok(TxAnalysisResponse {
             timestamp,
             blob_gas_used,
@@ -91,6 +94,9 @@ async fn analyze_transaction(
             blob_gas_price,
             legacy_calldata_gas: total_legacy_calldata_gas,
             eip_7623_calldata_gas: total_eip_7623_calldata_gas,
+            blob_data_wei_spent,
+            legacy_calldata_wei_spent,
+            eip_7623_calldata_wei_spent,
         })
     } else {
         // get calldata
@@ -99,6 +105,9 @@ async fn analyze_transaction(
         let eip_7623_calldata_gas = compute_calldata_gas(calldata);
         // compute legacy calldata gas
         let legacy_calldata_gas = compute_legacy_calldata_gas(calldata);
+        let blob_data_wei_spent = 0; // TODO: compute this
+        let legacy_calldata_wei_spent = legacy_calldata_gas as u128 * gas_price;
+        let eip_7623_calldata_wei_spent = eip_7623_calldata_gas as u128 * gas_price;
         Ok(TxAnalysisResponse {
             timestamp,
             blob_gas_used: 0,
@@ -107,6 +116,9 @@ async fn analyze_transaction(
             blob_gas_price: 0,
             eip_7623_calldata_gas,
             legacy_calldata_gas,
+            blob_data_wei_spent,
+            legacy_calldata_wei_spent,
+            eip_7623_calldata_wei_spent,
         })
     }
 }

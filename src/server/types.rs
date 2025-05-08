@@ -27,6 +27,12 @@ pub struct TxAnalysisResponse {
     pub eip_7623_calldata_gas: u64,
     /// Legacy calldata gas.
     pub legacy_calldata_gas: u64,
+    /// Blob data wei spent.
+    pub blob_data_wei_spent: u128,
+    /// Legacy calldata wei spent.
+    pub legacy_calldata_wei_spent: u128,
+    /// EIP-7623 calldata wei spent.
+    pub eip_7623_calldata_wei_spent: u128,
 }
 
 /// Query parameters for the contract handler.
