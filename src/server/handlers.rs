@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     provider::ProviderState,
-    utils::{BASE_STIPEND, compute_calldata_gas, compute_legacy_calldata_gas},
+    utils::{BASE_STIPEND, BYTES_PER_BLOB, compute_calldata_gas, compute_legacy_calldata_gas},
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
@@ -49,18 +49,18 @@ async fn analyze_transaction(
     // get total gas used
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
-    let maybe_block_hash = receipt.block_hash;
-    let mut timestamp = None;
-    if let Some(block_hash) = maybe_block_hash {
-        timestamp = provider_state
-            .ethereum_provider
-            .get_block_by_hash(block_hash)
-            .await
-            .map_err(|e| {
-                HandlerError::ProviderError(format!("Failed to get block by hash: {}", e))
-            })?
-            .map(|block| block.header.timestamp);
-    }
+    let Some(block_hash) = receipt.block_hash else {
+        return Err(HandlerError::BlockNotFound(tx_hash_bytes.to_string()));
+    };
+    let Some(block) = provider_state
+        .ethereum_provider
+        .get_block_by_hash(block_hash)
+        .await
+        .map_err(|e| HandlerError::ProviderError(format!("Failed to get block by hash: {}", e)))?
+    else {
+        return Err(HandlerError::BlockNotFound(tx_hash_bytes.to_string()));
+    };
+    let timestamp = block.header.timestamp;
     if tx.is_eip4844() {
         let blob_gas_used = tx.blob_gas_used().unwrap(); // safe unwrap as it's an eip4844 tx
         let blob_gas_price = receipt.blob_gas_price.unwrap(); // safe unwrap as it's an eip4844 tx
@@ -83,6 +83,7 @@ async fn analyze_transaction(
             let eip7623_calldata_cost = compute_calldata_gas(&blob_data.data);
             total_eip_7623_calldata_gas += eip7623_calldata_cost;
         }
+        // compute wei spent in different configurations
         let blob_data_wei_spent = blob_gas_used as u128 * blob_gas_price;
         let legacy_calldata_wei_spent = total_legacy_calldata_gas as u128 * gas_price;
         let eip_7623_calldata_wei_spent = total_eip_7623_calldata_gas as u128 * gas_price;
@@ -91,21 +92,30 @@ async fn analyze_transaction(
             blob_gas_used,
             gas_used,
             gas_price,
-            blob_gas_price,
+            blob_gas_price: Some(blob_gas_price),
             legacy_calldata_gas: total_legacy_calldata_gas,
             eip_7623_calldata_gas: total_eip_7623_calldata_gas,
-            blob_data_wei_spent,
+            blob_data_wei_spent: Some(blob_data_wei_spent),
             legacy_calldata_wei_spent,
             eip_7623_calldata_wei_spent,
         })
     } else {
+        let blob_gas_price = block.header.blob_fee();
         // get calldata
         let calldata = tx.input();
         // compute EIP-7623 calldata gas
         let eip_7623_calldata_gas = compute_calldata_gas(calldata);
         // compute legacy calldata gas
         let legacy_calldata_gas = compute_legacy_calldata_gas(calldata);
-        let blob_data_wei_spent = 0; // TODO: compute this
+        // compute wei spent in different configurations
+        let blob_data_wei_spent = if let Some(blob_gas_price) = blob_gas_price {
+            // we need to compute the number of blobs needed to store the calldata
+            // and then multiply by the blob gas price and the number of bytes in a blob
+            let number_of_blobs_needed = calldata.len().div_ceil(BYTES_PER_BLOB as usize) as u128;
+            Some(number_of_blobs_needed * BYTES_PER_BLOB as u128 * blob_gas_price)
+        } else {
+            None
+        };
         let legacy_calldata_wei_spent = legacy_calldata_gas as u128 * gas_price;
         let eip_7623_calldata_wei_spent = eip_7623_calldata_gas as u128 * gas_price;
         Ok(TxAnalysisResponse {
@@ -113,7 +123,7 @@ async fn analyze_transaction(
             blob_gas_used: 0,
             gas_used,
             gas_price,
-            blob_gas_price: 0,
+            blob_gas_price,
             eip_7623_calldata_gas,
             legacy_calldata_gas,
             blob_data_wei_spent,

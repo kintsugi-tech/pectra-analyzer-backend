@@ -15,6 +15,8 @@ pub enum HandlerError {
     TransactionNotFound(String),
     #[error("Transaction receipt not found: {0}")]
     ReceiptNotFound(String),
+    #[error("Block not found for transaction: {0}")]
+    BlockNotFound(String),
     #[error("Blob data not found: {0}")]
     BlobDataNotFound(String),
     #[error("Contract is an EOA: {0}")]
@@ -29,6 +31,7 @@ impl IntoResponse for HandlerError {
             HandlerError::TransactionNotFound(_) => StatusCode::NOT_FOUND,
             HandlerError::ReceiptNotFound(_) => StatusCode::NOT_FOUND,
             HandlerError::BlobDataNotFound(_) => StatusCode::NOT_FOUND,
+            HandlerError::BlockNotFound(_) => StatusCode::NOT_FOUND,
             HandlerError::InvalidContract(_) => StatusCode::BAD_REQUEST,
         };
 
