@@ -49,6 +49,8 @@ pub struct ContractQuery {
 pub struct ContractAnalysisResponse {
     /// The list of transactions hash included in the analysis.
     pub tx_list: Vec<TxHash>,
+    /// The list of transactions hash influenced by EIP-7623.
+    pub influenced_tx_list: Vec<TxHash>,
     /// The number of transactions influenced by EIP-7623.
     pub influenced: u64,
 }
