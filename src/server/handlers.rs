@@ -77,10 +77,11 @@ async fn analyze_transaction(
                     HandlerError::ProviderError(format!("Failed to get blob data: {}", e))
                 })?;
             // compute old calldata cost with the pre eip-7623 formula
-            let legacy_calldata_cost = compute_legacy_calldata_gas(&blob_data.data);
+            let legacy_calldata_cost =
+                compute_legacy_calldata_gas(&blob_data.data, block.header.number);
             total_legacy_calldata_gas += legacy_calldata_cost;
             // also compute new calldata cost with the eip-7623 formula
-            let eip7623_calldata_cost = compute_calldata_gas(&blob_data.data);
+            let eip7623_calldata_cost = compute_calldata_gas(&blob_data.data, block.header.number);
             total_eip_7623_calldata_gas += eip7623_calldata_cost;
         }
         // compute wei spent in different configurations
@@ -104,9 +105,9 @@ async fn analyze_transaction(
         // get calldata
         let calldata = tx.input();
         // compute EIP-7623 calldata gas
-        let eip_7623_calldata_gas = compute_calldata_gas(calldata);
+        let eip_7623_calldata_gas = compute_calldata_gas(calldata, block.header.number);
         // compute legacy calldata gas
-        let legacy_calldata_gas = compute_legacy_calldata_gas(calldata);
+        let legacy_calldata_gas = compute_legacy_calldata_gas(calldata, block.header.number);
         // compute wei spent in different configurations
         let blob_data_wei_spent = if let Some(blob_gas_price) = blob_gas_price {
             // we need to compute the number of blobs needed to store the calldata
