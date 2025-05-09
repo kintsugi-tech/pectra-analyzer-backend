@@ -2686,6 +2686,7 @@ dependencies = [
  "eyre",
  "reqwest",
  "revm",
+ "rustc-hash",
  "serde",
  "thiserror",
  "tokio",

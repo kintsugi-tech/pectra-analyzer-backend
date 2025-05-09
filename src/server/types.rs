@@ -1,4 +1,5 @@
 use alloy_primitives::TxHash;
+use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 
 /// Query parameters for the tx handler.
@@ -48,7 +49,7 @@ pub struct ContractQuery {
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct ContractAnalysisResponse {
     /// The list of transactions hash included in the analysis.
-    pub tx_list: Vec<TxHash>,
+    pub tx_list: FxHashSet<TxHash>,
     /// The list of transactions hash influenced by EIP-7623.
     pub influenced_tx_list: Vec<TxHash>,
     /// The number of transactions influenced by EIP-7623.
