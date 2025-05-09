@@ -11,6 +11,7 @@ use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
 use alloy_provider::Provider;
 use axum::{Json, extract::Query, extract::State};
+use rustc_hash::FxHashSet;
 
 pub async fn root_handler() -> &'static str {
     concat!(
@@ -187,7 +188,9 @@ pub async fn contract_handler(
     tx_list.extend(normal_txs.result.iter().map(|tx| tx.hash));
     let mut influenced = 0;
     let mut influenced_tx_list = Vec::with_capacity(tx_list.len());
-    for tx_hash in &tx_list {
+    // deduplicate tx list
+    let unique_tx_list: FxHashSet<_> = tx_list.into_iter().collect();
+    for tx_hash in &unique_tx_list {
         let tx_analysis = analyze_transaction(&provider_state, *tx_hash).await?;
         if tx_analysis.gas_used == tx_analysis.eip_7623_calldata_gas + BASE_STIPEND {
             // tx is influenced by eip7623
@@ -196,7 +199,7 @@ pub async fn contract_handler(
         }
     }
     Ok(Json(ContractAnalysisResponse {
-        tx_list,
+        tx_list: unique_tx_list,
         influenced_tx_list,
         influenced,
     }))
