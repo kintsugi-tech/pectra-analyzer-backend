@@ -2,7 +2,7 @@ use axum::{Router, routing::get};
 use pectralizer::{
     provider::ProviderState,
     server::handlers::{contract_handler, root_handler, tx_handler},
-    tracker,
+    tracker::{self, database::{Database, SqliteDatabase}},
 };
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -19,10 +19,11 @@ async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyr
     let initial_block = provider_state.ethereum_provider.get_block_number().await
         .map_err(|e| eyre::eyre!("Failed to get current block number for DB initialization: {}", e))?;
 
-    // initialize the database
-    let db_conn = tracker::db::initialize_db(DB_PATH, initial_block)
+    // initialize the database using SqliteDatabase::new
+    let db_instance = SqliteDatabase::new(DB_PATH, initial_block)
+        .await // SqliteDatabase::new is async
         .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
-    let db_conn_arc = Arc::new(db_conn);
+    let db_conn_arc: Arc<dyn Database> = Arc::new(db_instance); // Type is Arc<dyn Database>
 
     println!("Starting L2 batches monitoring service...");
     tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state).await?;

@@ -1,10 +1,12 @@
 use crate::provider::ProviderState;
+use crate::tracker::database::{Database, TrackedBatch};
 use alloy_primitives::{Address, hex::FromHex, FixedBytes};
 use alloy_provider::Provider;
 use rusqlite::Connection;
 use serde_json;
 use std::sync::{Arc, LazyLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use eyre::Result;
 
 // Placeholder for the L2 batcher addresses
 static L2_BATCHERS_ADDRESSES: LazyLock<Vec<Address>> = LazyLock::new(|| {
@@ -21,9 +23,9 @@ fn is_tx_already_tracked(conn: &Connection, tx_hash: &str) -> eyre::Result<bool>
 }
 
 pub async fn start_monitoring(
-    db_conn: Arc<Connection>,
+    db: Arc<dyn Database>,
     provider_state: ProviderState,
-) -> eyre::Result<()> {
+) -> Result<()> {
     println!("L2 Batches Monitoring Service: Initializing...");
 
     loop {
@@ -32,7 +34,7 @@ pub async fn start_monitoring(
             L2_BATCHERS_ADDRESSES.iter().map(|a| format!("{:#x}", a)).collect::<Vec<_>>()
         );
 
-        let start_block = crate::tracker::db::get_last_analyzed_block(&db_conn)?;
+        let start_block = db.get_last_analyzed_block().await?;
         let current_block = provider_state.ethereum_provider.get_block_number().await?;
         
         println!("Checking transactions from block {} to {}", start_block, current_block);
@@ -55,7 +57,7 @@ pub async fn start_monitoring(
                     for tx in response.result {
                         let tx_hash = format!("{:#x}", tx.hash);
                         
-                        if is_tx_already_tracked(&db_conn, &tx_hash)? {
+                        if db.is_tx_already_tracked(&tx_hash).await? {
                             println!("Skipping already tracked transaction: {}", tx_hash);
                             continue;
                         }
@@ -75,7 +77,7 @@ pub async fn start_monitoring(
                             }
                         };
                         
-                        let tracked_batch = crate::tracker::db::TrackedBatch {
+                        let tracked_batch = TrackedBatch {
                             id: None,
                             tx_hash,
                             batcher_address: format!("{:#x}", batcher_address),
@@ -88,7 +90,7 @@ pub async fn start_monitoring(
                         };
 
                         // Save to database
-                        if let Err(e) = crate::tracker::db::save_tracked_batch(&db_conn, &tracked_batch) {
+                        if let Err(e) = db.save_tracked_batch(&tracked_batch).await {
                             eprintln!("Failed to save transaction {}: {}", tracked_batch.tx_hash, e);
                         } else {
                             println!("Successfully saved transaction: {}", tracked_batch.tx_hash);
@@ -102,7 +104,7 @@ pub async fn start_monitoring(
         }
 
         // Update the last analyzed block
-        if let Err(e) = crate::tracker::db::update_last_analyzed_block(&db_conn, current_block) {
+        if let Err(e) = db.update_last_analyzed_block(current_block).await {
             eprintln!("Failed to update last analyzed block: {}", e);
         }
 

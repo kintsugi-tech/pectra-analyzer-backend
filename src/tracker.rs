@@ -1,2 +1,2 @@
-pub mod db;
+pub mod database;
 pub mod l2_monitor;
