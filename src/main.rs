@@ -6,6 +6,7 @@ use pectralizer::{
 };
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use alloy_provider::Provider;
 
 /// The path to the database file for the L2 batches monitoring service.
 const DB_PATH: &str = "./l2_batches_monitoring.db";
@@ -13,7 +14,13 @@ const DB_PATH: &str = "./l2_batches_monitoring.db";
 /// Run the L2 proposers monitoring service.
 async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyre::Result<()> {
     println!("Initializing L2 batches monitoring database...");
-    let db_conn = tracker::db::initialize_db(DB_PATH)
+
+    // get current block number for initial setup
+    let initial_block = provider_state.ethereum_provider.get_block_number().await
+        .map_err(|e| eyre::eyre!("Failed to get current block number for DB initialization: {}", e))?;
+
+    // initialize the database
+    let db_conn = tracker::db::initialize_db(DB_PATH, initial_block)
         .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
     let db_conn_arc = Arc::new(db_conn);
 
