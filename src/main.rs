@@ -2,8 +2,25 @@ use axum::{Router, routing::get};
 use pectralizer::{
     provider::ProviderState,
     server::handlers::{contract_handler, root_handler, tx_handler},
+    tracker,
 };
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+
+/// The path to the database file for the L2 batches monitoring service.
+const DB_PATH: &str = "./l2_batches_monitoring.db";
+
+/// Run the L2 proposers monitoring service.
+async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyre::Result<()> {
+    println!("Initializing L2 batches monitoring database...");
+    let db_conn = tracker::db::initialize_db(DB_PATH)
+        .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
+    let db_conn_arc = Arc::new(db_conn);
+
+    println!("Starting L2 batches monitoring service...");
+    tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state).await?;
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -22,6 +39,7 @@ async fn main() -> eyre::Result<()> {
     // initialize shared provider state
     let provider_state =
         ProviderState::new(&ethereum_provider_url, &etherscan_api_key, chain_id).await;
+    let provider_state_for_tracker = provider_state.clone();
 
     // get port from environment or use default
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -35,10 +53,11 @@ async fn main() -> eyre::Result<()> {
         .route("/tx", get(tx_handler))
         .route("/contract", get(contract_handler))
         .layer(CorsLayer::permissive())
-        .with_state(provider_state);
+        .with_state(provider_state.clone());
 
-    // run our app with hyper, listening globally on configured port
     let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+
     println!("🚀 Starting Pectralizer server...");
     println!("📡 Ethereum provider configured");
     println!("🌐 Server listening on http://0.0.0.0:{}", port);
@@ -47,8 +66,20 @@ async fn main() -> eyre::Result<()> {
     println!("   - GET  /tx         - Transaction analysis");
     println!("   - GET  /contract   - Contract analysis");
 
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app).await?;
+    // run both services concurrently
+    tokio::select! {
+        res = async { axum::serve(listener, app).await.map_err(eyre::Report::from) } => {
+            if let Err(e) = res {
+                eprintln!("Axum server error: {:?}", e);
+            }
+        },
+        res = run_l2_batches_monitoring_service(provider_state_for_tracker) => {
+            if let Err(e) = res {
+                eprintln!("L2 tracker service error: {:?}", e);
+            }
+        },
+    }
+
     Ok(())
 }
 
