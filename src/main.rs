@@ -1,12 +1,15 @@
+use alloy_provider::Provider;
 use axum::{Router, routing::get};
 use pectralizer::{
     provider::ProviderState,
     server::handlers::{contract_handler, root_handler, tx_handler},
-    tracker::{self, database::{Database, SqliteDatabase}},
+    tracker::{
+        self,
+        database::{Database, SqliteDatabase},
+    },
 };
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use alloy_provider::Provider;
 
 /// The path to the database file for the L2 batches monitoring service.
 const DB_PATH: &str = "./l2_batches_monitoring.db";
@@ -16,8 +19,16 @@ async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyr
     println!("Initializing L2 batches monitoring database...");
 
     // get current block number for initial setup
-    let initial_block = provider_state.ethereum_provider.get_block_number().await
-        .map_err(|e| eyre::eyre!("Failed to get current block number for DB initialization: {}", e))?;
+    let initial_block = provider_state
+        .ethereum_provider
+        .get_block_number()
+        .await
+        .map_err(|e| {
+            eyre::eyre!(
+                "Failed to get current block number for DB initialization: {}",
+                e
+            )
+        })?;
 
     // initialize the database using SqliteDatabase::new
     let db_instance = SqliteDatabase::new(DB_PATH, initial_block)

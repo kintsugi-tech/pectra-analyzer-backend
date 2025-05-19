@@ -73,12 +73,11 @@ impl SqliteDatabase {
 #[async_trait]
 impl Database for SqliteDatabase {
     async fn is_tx_already_tracked(&self, tx_hash: &str) -> Result<bool> {
-        let result = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM l2_batches_txs WHERE tx_hash = ?",
-        )
-        .bind(tx_hash)
-        .fetch_one(&self.pool)
-        .await?;
+        let result =
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM l2_batches_txs WHERE tx_hash = ?")
+                .bind(tx_hash)
+                .fetch_one(&self.pool)
+                .await?;
         Ok(result > 0)
     }
 
@@ -102,7 +101,7 @@ impl Database for SqliteDatabase {
         )
         .fetch_one(&self.pool)
         .await?;
-        Ok(block_i64 as u64) 
+        Ok(block_i64 as u64)
     }
 
     async fn update_last_analyzed_block(&self, block_number: u64) -> Result<()> {
