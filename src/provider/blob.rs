@@ -1,9 +1,11 @@
+use alloy_chains::NamedChain;
 use alloy_primitives::Bytes;
 use reqwest::Client;
 use serde::Deserialize;
 
 /// The url of the blob provider, aka blobscan.
-const BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
+const MAINNET_BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
+const SEPOLIA_BLOB_PROVIDER_URL: &str = "https://api.sepolia.blobscan.com/blobs/";
 
 /// The data of the blob.
 #[derive(Debug, Deserialize)]
@@ -19,14 +21,25 @@ pub struct BlobProvider {
     pub client: Client,
     /// The blob provider endpoint url.
     pub endpoint: String,
+    /// The chain id.
+    pub chain_id: u64,
 }
 
 impl BlobProvider {
     /// Create a new blob provider.
-    pub fn new() -> Self {
+    pub fn new(chain_id: u64) -> Self {
+        let endpoint = if chain_id == <NamedChain as Into<u64>>::into(NamedChain::Mainnet) {
+            MAINNET_BLOB_PROVIDER_URL
+        } else if chain_id == <NamedChain as Into<u64>>::into(NamedChain::Sepolia) {
+            SEPOLIA_BLOB_PROVIDER_URL
+        } else {
+            println!("We don't support this chain id for the blob provider, fallback to mainnet");
+            MAINNET_BLOB_PROVIDER_URL
+        };
         Self {
             client: Client::new(),
-            endpoint: BLOB_PROVIDER_URL.to_string(),
+            endpoint: endpoint.to_string(),
+            chain_id,
         }
     }
 
@@ -36,11 +49,5 @@ impl BlobProvider {
         let response = self.client.get(url).send().await?;
         let blob_data: BlobData = response.json().await?;
         Ok(blob_data)
-    }
-}
-
-impl Default for BlobProvider {
-    fn default() -> Self {
-        Self::new()
     }
 }

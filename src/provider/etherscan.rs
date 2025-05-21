@@ -28,15 +28,18 @@ pub struct EtherscanProvider {
     pub api_key: String,
     /// The etherscan endpoint url.
     pub endpoint: String,
+    /// The chain id.
+    pub chain_id: u64,
 }
 
 impl EtherscanProvider {
     /// Create a new etherscan provider.
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, chain_id: u64) -> Self {
         Self {
             client: Client::new(),
             api_key,
             endpoint: ETHERSCAN_ENDPOINT.to_string(),
+            chain_id,
         }
     }
 }
@@ -46,13 +49,12 @@ impl EtherscanProvider {
     pub async fn get_internal_txs(
         &self,
         address: Address,
-        chain_id: u64,
         start_block: u64,
         end_block: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
             "{}?chainid={}&module=account&action=txlistinternal&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, chain_id, address, start_block, end_block, self.api_key,
+            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;
@@ -63,13 +65,12 @@ impl EtherscanProvider {
     pub async fn get_normal_txs(
         &self,
         address: Address,
-        chain_id: u64,
         start_block: u64,
         end_block: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
             "{}?chainid={}&module=account&action=txlist&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, chain_id, address, start_block, end_block, self.api_key,
+            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;

@@ -26,6 +26,7 @@ Create a `.env` file in the project root with the following variables:
 # Required
 ETHEREUM_PROVIDER=your_ethereum_provider_url
 ETHERSCAN_API_KEY=your_etherscan_api_key
+CHAIN_ID=1 (right now Ethereum mainnet and Sepolia are supported)
 
 # Optional
 PORT=3000  # Default: 3000
