@@ -34,11 +34,11 @@ pub struct SqliteDatabase {
 
 impl SqliteDatabase {
     pub async fn new(db_path: &str, initial_block: u64) -> Result<Self> {
-        // Ensure the db file can be created by sqlx, e.g. by ensuring parent directory exists.
+        // ensure the db file can be created by sqlx, e.g. by ensuring parent directory exists.
         // sqlx creates the file if it doesn't exist with mode=rwc.
         let db_url = format!("sqlite://{}?mode=rwc", db_path);
         let pool = SqlitePoolOptions::new()
-            .max_connections(5) // Example pool size
+            .max_connections(5)
             .connect(&db_url)
             .await?;
 
