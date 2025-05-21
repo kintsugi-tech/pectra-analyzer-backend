@@ -57,9 +57,8 @@ impl EtherscanProvider {
             self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
         );
         let response = self.client.get(url).send().await?;
-        let txs: reqwest::Result<EtherscanResponse> = response.json().await;
-        println!("response: {:?}", txs);
-        Ok(txs.unwrap())
+        let txs: EtherscanResponse = response.json().await?;
+        Ok(txs)
     }
 
     /// Get last (up to 5) normal transactions of an address.

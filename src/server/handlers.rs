@@ -166,8 +166,8 @@ pub async fn contract_handler(
         .get_block_number()
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get block number: {}", e)))?;
-    // 700k blocks are roughly 3 months in Ethereum mainnet with 12s block time
-    let start_block = last_block_number - 700_000;
+    // 300 blocks are roughly 1 hour in Ethereum mainnet with 12s block time
+    let start_block = last_block_number - 300;
     // collect all transaction hashes into a single Vec directly
     let mut tx_list = Vec::new();
     // get internal transactions
