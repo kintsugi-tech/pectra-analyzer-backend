@@ -170,7 +170,7 @@ mod tests {
         let query = ContractQuery {
             contract_address: "0x41dDf7fC14a579E0F3f2D698e14c76d9d486B9F7".to_string(),
         };
-        let response = contract_handler(State(provider_state), Query(query))
+        let _response = contract_handler(State(provider_state), Query(query))
             .await
             .unwrap();
     }
@@ -191,7 +191,7 @@ mod tests {
         let query = ContractQuery {
             contract_address: "0xfD3130Ea0e8B7Dd61Ac3663328a66d97eb02f84b".to_string(),
         };
-        let response = contract_handler(State(provider_state), Query(query))
+        let _response = contract_handler(State(provider_state), Query(query))
             .await
             .unwrap();
     }
