@@ -15,9 +15,13 @@ async fn main() -> eyre::Result<()> {
         .map_err(|_| eyre::eyre!("ETHEREUM_PROVIDER environment variable is not set"))?;
     let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
         .map_err(|_| eyre::eyre!("ETHERSCAN_API_KEY environment variable is not set"))?;
+    let chain_id: u64 = std::env::var("CHAIN_ID")
+        .map_err(|_| eyre::eyre!("CHAIN_ID environment variable is not set"))?
+        .parse()?;
 
     // initialize shared provider state
-    let provider_state = ProviderState::new(&ethereum_provider_url, &etherscan_api_key).await;
+    let provider_state =
+        ProviderState::new(&ethereum_provider_url, &etherscan_api_key, chain_id).await;
 
     // get port from environment or use default
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -50,6 +54,7 @@ async fn main() -> eyre::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use alloy_chains::NamedChain;
     use axum::extract::{Query, State};
     use pectralizer::{
         provider::ProviderState,
@@ -61,8 +66,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_eip1559_tx() {
-        let provider_state =
-            ProviderState::new("https://eth.merkle.io", "https://eth.merkle.io").await;
+        let provider_state = ProviderState::new(
+            "https://eth.merkle.io",
+            "https://eth.merkle.io",
+            NamedChain::Mainnet.into(),
+        )
+        .await;
         let query = TxHashQuery {
             tx_hash: "0xd367c556c43058a3718362a0b2e624471c69e7f00846fe4474469a9895310bbd"
                 .to_string(),
@@ -87,8 +96,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_blob_tx() {
-        let provider_state =
-            ProviderState::new("https://eth.merkle.io", "https://eth.merkle.io").await;
+        let provider_state = ProviderState::new(
+            "https://eth.merkle.io",
+            "https://eth.merkle.io",
+            NamedChain::Mainnet.into(),
+        )
+        .await;
         let query = TxHashQuery {
             tx_hash: "0xf9b3708d3c8a07f7c26bbd336c2746977787b126fbc95e2df816a74d599957c4"
                 .to_string(),
@@ -112,15 +125,73 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_blob_tx_sepolia() {
+        let provider_state = ProviderState::new(
+            "https://ethereum-sepolia-rpc.publicnode.com",
+            "https://ethereum-sepolia-rpc.publicnode.com",
+            NamedChain::Sepolia.into(),
+        )
+        .await;
+        let query = TxHashQuery {
+            tx_hash: "0x6516958cca067ee7de225b23f8034ce0a79aae16af176d566bf894e35722f34d"
+                .to_string(),
+        };
+        let response = tx_handler(State(provider_state), Query(query))
+            .await
+            .unwrap();
+        let expected_response = TxAnalysisResponse {
+            timestamp: 1747858644,
+            gas_used: 21000,
+            gas_price: 1000000038,
+            blob_gas_price: Some(1),
+            blob_gas_used: 131072,
+            eip_7623_calldata_gas: 1339520,
+            legacy_calldata_gas: 535808,
+            blob_data_wei_spent: Some(131072),
+            legacy_calldata_wei_spent: 535808020360704,
+            eip_7623_calldata_wei_spent: 1339520050901760,
+        };
+        assert_eq!(response.0, expected_response);
+    }
+
+    #[tokio::test]
     async fn test_contract_handler() {
         // load .env environment variables
         dotenv::dotenv().ok();
         let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
             .map_err(|_| eyre::eyre!("ETHERSCAN_API_KEY environment variable is not set"))
             .unwrap();
-        let provider_state = ProviderState::new("https://eth.merkle.io", &etherscan_api_key).await;
+        let provider_state = ProviderState::new(
+            "https://eth.merkle.io",
+            &etherscan_api_key,
+            NamedChain::Mainnet.into(),
+        )
+        .await;
         let query = ContractQuery {
             contract_address: "0x41dDf7fC14a579E0F3f2D698e14c76d9d486B9F7".to_string(),
+        };
+        let response = contract_handler(State(provider_state), Query(query))
+            .await
+            .unwrap();
+        assert_eq!(response.0.tx_list.len(), 5);
+        assert_eq!(response.0.influenced, 0);
+    }
+
+    #[tokio::test]
+    async fn test_contract_handler_sepolia() {
+        // load .env environment variables
+        dotenv::dotenv().ok();
+        let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
+            .map_err(|_| eyre::eyre!("ETHERSCAN_API_KEY environment variable is not set"))
+            .unwrap();
+        let provider_state = ProviderState::new(
+            "https://ethereum-sepolia-rpc.publicnode.com",
+            &etherscan_api_key,
+            NamedChain::Sepolia.into(),
+        )
+        .await;
+        let query = ContractQuery {
+            contract_address: "0xfD3130Ea0e8B7Dd61Ac3663328a66d97eb02f84b".to_string(),
         };
         let response = contract_handler(State(provider_state), Query(query))
             .await

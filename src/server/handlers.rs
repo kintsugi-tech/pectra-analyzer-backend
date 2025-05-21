@@ -6,7 +6,6 @@ use crate::{
     provider::ProviderState,
     utils::{BASE_STIPEND, BYTES_PER_BLOB, compute_calldata_gas, compute_legacy_calldata_gas},
 };
-use alloy_chains::NamedChain;
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
 use alloy_provider::Provider;
@@ -169,20 +168,19 @@ pub async fn contract_handler(
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get block number: {}", e)))?;
     // 700k blocks are roughly 3 months in Ethereum mainnet with 12s block time
     let start_block = last_block_number - 700_000;
-    let chain_id = NamedChain::Mainnet.into();
     // collect all transaction hashes into a single Vec directly
     let mut tx_list = Vec::new();
     // get internal transactions
     let internal_txs = provider_state
         .etherscan_provider
-        .get_internal_txs(contract_address, chain_id, start_block, last_block_number)
+        .get_internal_txs(contract_address, start_block, last_block_number)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get internal txs: {}", e)))?;
     tx_list.extend(internal_txs.result.iter().map(|tx| tx.hash));
     // get normal transactions
     let normal_txs = provider_state
         .etherscan_provider
-        .get_normal_txs(contract_address, chain_id, start_block, last_block_number)
+        .get_normal_txs(contract_address, start_block, last_block_number)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
     tx_list.extend(normal_txs.result.iter().map(|tx| tx.hash));
