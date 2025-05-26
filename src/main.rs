@@ -72,7 +72,7 @@ async fn main() -> eyre::Result<()> {
         .route("/tx", get(tx_handler))
         .route("/contract", get(contract_handler))
         .layer(CorsLayer::permissive())
-        .with_state(provider_state.clone());
+        .with_state(provider_state);
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
