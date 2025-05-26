@@ -65,6 +65,7 @@ impl SqliteDatabase {
             .connect(&db_url)
             .await?;
 
+        // create l2 batches txs table
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS l2_batches_txs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +79,7 @@ impl SqliteDatabase {
         .execute(&pool)
         .await?;
 
-        // Create failed transactions table
+        // create failed transactions table
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS failed_transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
