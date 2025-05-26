@@ -6,6 +6,7 @@ use eyre::Result;
 use serde_json;
 use std::sync::{Arc, LazyLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{error, info};
 
 // Placeholder for the L2 batcher addresses
 static L2_BATCHERS_ADDRESSES: LazyLock<Vec<Address>> = LazyLock::new(|| {
@@ -14,10 +15,10 @@ static L2_BATCHERS_ADDRESSES: LazyLock<Vec<Address>> = LazyLock::new(|| {
 });
 
 pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderState) -> Result<()> {
-    println!("L2 Batches Monitoring Service: Initializing...");
+    info!("L2 Batches Monitoring Service: Initializing...");
 
     loop {
-        println!(
+        info!(
             "L2 Batches Monitoring Service: Starting check for new transactions. Monitored addresses: {:?}",
             L2_BATCHERS_ADDRESSES
                 .iter()
@@ -28,14 +29,14 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
         let start_block = db.get_last_analyzed_block().await? + 1;
         let current_block = provider_state.ethereum_provider.get_block_number().await?;
 
-        println!(
+        info!(
             "Checking transactions from block {} to {}",
             start_block, current_block
         );
 
         // for each monitored address, get its transactions
         for &batcher_address in L2_BATCHERS_ADDRESSES.iter() {
-            println!(
+            info!(
                 "Checking transactions for batcher address: {:#x}",
                 batcher_address
             );
@@ -47,7 +48,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                 .await
             {
                 Ok(response) => {
-                    println!(
+                    info!(
                         "Found {} transactions for address {:#x}",
                         response.result.len(),
                         batcher_address
@@ -57,11 +58,11 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                         let tx_hash = format!("{:#x}", tx.hash);
 
                         if db.is_tx_already_tracked(&tx_hash).await? {
-                            println!("Skipping already tracked transaction: {}", tx_hash);
+                            info!("Skipping already tracked transaction: {}", tx_hash);
                             continue;
                         }
 
-                        println!("Processing new transaction: {}", tx_hash);
+                        info!("Processing new transaction: {}", tx_hash);
 
                         // analyze the transaction using provider_state
                         let tx_hash_bytes = FixedBytes::from_hex(&tx_hash)
@@ -77,7 +78,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                                 eyre::eyre!("Failed to serialize analysis result: {}", e)
                             })?,
                             Err(e) => {
-                                eprintln!(
+                                error!(
                                     "Failed to analyze transaction {}: {}. Skipping...",
                                     tx_hash, e
                                 );
@@ -99,17 +100,17 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
 
                         // save to database
                         if let Err(e) = db.save_tracked_batch(&tracked_batch).await {
-                            eprintln!(
+                            error!(
                                 "Failed to save transaction {}: {}",
                                 tracked_batch.tx_hash, e
                             );
                         } else {
-                            println!("Successfully saved transaction: {}", tracked_batch.tx_hash);
+                            info!("Successfully saved transaction: {}", tracked_batch.tx_hash);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!(
+                    error!(
                         "Error fetching transactions for address {:#x}: {}",
                         batcher_address, e
                     );
@@ -119,10 +120,10 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
 
         // update the last analyzed block
         if let Err(e) = db.update_last_analyzed_block(current_block).await {
-            eprintln!("Failed to update last analyzed block: {}", e);
+            error!("Failed to update last analyzed block: {}", e);
         }
 
-        println!("L2 Batches Monitoring Service: Completed check. Sleeping for 2 minutes...");
+        info!("L2 Batches Monitoring Service: Completed check. Sleeping for 2 minutes...");
         tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
     }
 }

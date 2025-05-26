@@ -28,5 +28,8 @@ WORKDIR /usr/local/bin
 # Copy the built binary from builder
 COPY --from=builder /usr/src/app/target/release/pectralizer .
 
+# Set the RUST_LOG environment variable
+ENV RUST_LOG=INFO
+
 # Run the binary
 CMD ["./pectralizer"] 

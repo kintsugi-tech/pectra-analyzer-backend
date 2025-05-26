@@ -28,3 +28,5 @@ tower-http = {version = "0.6.4", features = ["cors"] }
 rustc-hash = "2.1.1"
 sqlx = { version = "0.8", features = [ "runtime-tokio-rustls", "sqlite" ] }
 async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
