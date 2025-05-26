@@ -2,6 +2,7 @@ use alloy_chains::NamedChain;
 use alloy_primitives::Bytes;
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::warn;
 
 /// The url of the blob provider, aka blobscan.
 const MAINNET_BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
@@ -33,7 +34,7 @@ impl BlobProvider {
         } else if chain_id == <NamedChain as Into<u64>>::into(NamedChain::Sepolia) {
             SEPOLIA_BLOB_PROVIDER_URL
         } else {
-            println!("We don't support this chain id for the blob provider, fallback to mainnet");
+            warn!("We don't support this chain id for the blob provider, fallback to mainnet");
             MAINNET_BLOB_PROVIDER_URL
         };
         Self {

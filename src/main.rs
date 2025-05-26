@@ -10,13 +10,15 @@ use pectralizer::{
 };
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
 
 /// The path to the database file for the L2 batches monitoring service.
 const DB_PATH: &str = "./l2_batches_monitoring.db";
 
 /// Run the L2 proposers monitoring service.
 async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyre::Result<()> {
-    println!("Initializing L2 batches monitoring database...");
+    info!("Initializing L2 batches monitoring database...");
 
     // get current block number for initial setup
     let initial_block = provider_state
@@ -36,13 +38,19 @@ async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyr
         .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
     let db_conn_arc: Arc<dyn Database> = Arc::new(db_instance); // Type is Arc<dyn Database>
 
-    println!("Starting L2 batches monitoring service...");
+    info!("Starting L2 batches monitoring service...");
     tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state).await?;
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    // init tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init()
+        .map_err(|e| eyre::eyre!("Failed to initialize tracing: {}", e))?;
+
     // load .env environment variables
     dotenv::dotenv().ok();
 
@@ -77,24 +85,24 @@ async fn main() -> eyre::Result<()> {
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    println!("🚀 Starting Pectralizer server...");
-    println!("📡 Ethereum provider configured");
-    println!("🌐 Server listening on http://0.0.0.0:{}", port);
-    println!("📝 Available endpoints:");
-    println!("   - GET  /           - Welcome message");
-    println!("   - GET  /tx         - Transaction analysis");
-    println!("   - GET  /contract   - Contract analysis");
+    info!("🚀 Starting Pectralizer server...");
+    info!("📡 Ethereum provider configured");
+    info!("🌐 Server listening on http://0.0.0.0:{}", port);
+    info!("📝 Available endpoints:");
+    info!("   - GET  /           - Welcome message");
+    info!("   - GET  /tx         - Transaction analysis");
+    info!("   - GET  /contract   - Contract analysis");
 
     // run both services concurrently
     tokio::select! {
         res = async { axum::serve(listener, app).await.map_err(eyre::Report::from) } => {
             if let Err(e) = res {
-                eprintln!("Axum server error: {:?}", e);
+                error!("Axum server error: {:?}", e);
             }
         },
         res = run_l2_batches_monitoring_service(provider_state_for_tracker) => {
             if let Err(e) = res {
-                eprintln!("L2 tracker service error: {:?}", e);
+                error!("L2 tracker service error: {:?}", e);
             }
         },
     }
