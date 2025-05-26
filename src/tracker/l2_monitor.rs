@@ -25,7 +25,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                 .collect::<Vec<_>>()
         );
 
-        let start_block = db.get_last_analyzed_block().await?;
+        let start_block = db.get_last_analyzed_block().await? + 1;
         let current_block = provider_state.ethereum_provider.get_block_number().await?;
 
         println!(
@@ -123,7 +123,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
         }
 
         println!(
-            "L2 Batches Monitoring Service: Completed hourly check. Sleeping for 2 minutes..."
+            "L2 Batches Monitoring Service: Completed check. Sleeping for 2 minutes..."
         );
         tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
     }
