@@ -39,12 +39,12 @@ async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyr
         .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
     let db_conn_arc: Arc<dyn Database> = Arc::new(db_instance); // Type is Arc<dyn Database>
 
-    // Create retry handler for failed transactions
+    // create retry handler for failed transactions
     let retry_handler = RetryHandler::new(db_conn_arc.clone(), provider_state.clone());
 
     info!("Starting L2 batches monitoring service and retry handler...");
 
-    // Run both monitoring and retry services concurrently
+    // run both monitoring and retry services concurrently
     tokio::select! {
         res = tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state.clone()) => {
             if let Err(e) = res {
