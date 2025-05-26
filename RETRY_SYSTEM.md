@@ -15,7 +15,7 @@ When the `analyze_transaction` function fails (e.g., due to blobscan API errors)
 ### 2. Retry Processing
 A parallel `RetryHandler` service runs alongside the main monitor:
 - Checks for failed transactions ready for retry every 30 seconds
-- Processes transactions using exponential backoff (1min, 2min, 4min, 8min, 16min, max 1hour)
+- Processes transactions using exponential backoff (30s, 1min, 2min, 4min, 8min, max 1hour)
 - Maximum of 5 retry attempts before giving up
 - Successfully processed transactions are moved to the main database
 
@@ -51,16 +51,16 @@ CREATE TABLE failed_transactions (
 
 ### Retry Parameters (in `retry_handler.rs`)
 - `MAX_RETRY_ATTEMPTS`: 5 attempts
-- `BASE_RETRY_DELAY`: 60 seconds (1 minute)
+- `BASE_RETRY_DELAY`: 30 seconds
 - `MAX_RETRY_DELAY`: 3600 seconds (1 hour)
 - Retry check interval: 30 seconds
 
 ### Exponential Backoff Schedule
-- Attempt 1: 1 minute delay
-- Attempt 2: 2 minutes delay  
-- Attempt 3: 4 minutes delay
-- Attempt 4: 8 minutes delay
-- Attempt 5: 16 minutes delay
+- Attempt 1: 30 seconds delay
+- Attempt 2: 1 minute delay  
+- Attempt 3: 2 minutes delay
+- Attempt 4: 4 minutes delay
+- Attempt 5: 8 minutes delay
 - After 5 failures: Transaction is removed from queue
 
 ## Monitoring

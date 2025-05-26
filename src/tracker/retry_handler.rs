@@ -9,10 +9,8 @@ use tracing::{error, info, warn};
 
 /// Maximum number of retry attempts before giving up
 const MAX_RETRY_ATTEMPTS: i32 = 5;
-
 /// Base delay in seconds for exponential backoff
-const BASE_RETRY_DELAY: u64 = 60; // 1 minute
-
+const BASE_RETRY_DELAY: u64 = 30; // 30 seconds
 /// Maximum delay in seconds to prevent extremely long waits
 const MAX_RETRY_DELAY: u64 = 3600; // 1 hour
 
