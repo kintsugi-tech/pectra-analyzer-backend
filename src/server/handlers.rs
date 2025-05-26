@@ -20,7 +20,7 @@ pub async fn root_handler() -> &'static str {
     )
 }
 
-async fn analyze_transaction(
+pub async fn analyze_transaction(
     provider_state: &ProviderState,
     tx_hash_bytes: FixedBytes<32>,
 ) -> Result<TxAnalysisResponse, HandlerError> {
@@ -170,17 +170,17 @@ pub async fn contract_handler(
     let start_block = last_block_number - 300;
     // collect all transaction hashes into a single Vec directly
     let mut tx_list = Vec::new();
-    // get internal transactions
+    // get last (up to 5) internal transactions
     let internal_txs = provider_state
         .etherscan_provider
-        .get_internal_txs(contract_address, start_block, last_block_number)
+        .get_internal_txs(contract_address, start_block, last_block_number, 5)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get internal txs: {}", e)))?;
     tx_list.extend(internal_txs.result.iter().map(|tx| tx.hash));
-    // get normal transactions
+    // get last (up to 5) normal transactions
     let normal_txs = provider_state
         .etherscan_provider
-        .get_normal_txs(contract_address, start_block, last_block_number)
+        .get_normal_txs(contract_address, start_block, last_block_number, 5)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
     tx_list.extend(normal_txs.result.iter().map(|tx| tx.hash));

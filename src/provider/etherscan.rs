@@ -45,32 +45,34 @@ impl EtherscanProvider {
 }
 
 impl EtherscanProvider {
-    /// Get last (up to 5) internal transactions of an address.
+    /// Get last (offset) internal transactions of an address.
     pub async fn get_internal_txs(
         &self,
         address: Address,
         start_block: u64,
         end_block: u64,
+        offset: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
-            "{}?chainid={}&module=account&action=txlistinternal&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
+            "{}?chainid={}&module=account&action=txlistinternal&address={}&startblock={}&endblock={}&page=1&offset={}&sort=asc&apikey={}",
+            self.endpoint, self.chain_id, address, start_block, end_block, offset, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;
         Ok(txs)
     }
 
-    /// Get last (up to 5) normal transactions of an address.
+    /// Get last (offset) normal transactions of an address.
     pub async fn get_normal_txs(
         &self,
         address: Address,
         start_block: u64,
         end_block: u64,
+        offset: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
-            "{}?chainid={}&module=account&action=txlist&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
+            "{}?chainid={}&module=account&action=txlist&address={}&startblock={}&endblock={}&page=1&offset={}&sort=asc&apikey={}",
+            self.endpoint, self.chain_id, address, start_block, end_block, offset, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;
