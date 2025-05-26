@@ -122,9 +122,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
             eprintln!("Failed to update last analyzed block: {}", e);
         }
 
-        println!(
-            "L2 Batches Monitoring Service: Completed check. Sleeping for 2 minutes..."
-        );
+        println!("L2 Batches Monitoring Service: Completed check. Sleeping for 2 minutes...");
         tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
     }
 }
