@@ -30,3 +30,4 @@ sqlx = { version = "0.8", features = [ "runtime-tokio-rustls", "sqlite" ] }
 async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }

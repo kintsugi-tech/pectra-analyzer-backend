@@ -18,12 +18,37 @@ pub struct TrackedBatch {
     pub last_analyzed_block: Option<i64>, // SQLite INTEGER can be Option<i64>
 }
 
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct FailedTransaction {
+    pub id: Option<i64>,
+    pub tx_hash: String,
+    pub batcher_address: String,
+    pub error_message: String,
+    pub retry_count: i32,
+    pub next_retry_at: i64,     // Unix timestamp
+    pub first_failed_at: i64,   // Unix timestamp
+    pub last_attempted_at: i64, // Unix timestamp
+}
+
 #[async_trait]
 pub trait Database: Send + Sync {
     async fn is_tx_already_tracked(&self, tx_hash: &str) -> Result<bool>;
     async fn save_tracked_batch(&self, batch: &TrackedBatch) -> Result<()>;
     async fn get_last_analyzed_block(&self) -> Result<u64>;
     async fn update_last_analyzed_block(&self, block_number: u64) -> Result<()>;
+
+    // methods for failed transaction handling
+    async fn save_failed_transaction(&self, failed_tx: &FailedTransaction) -> Result<()>;
+    async fn get_failed_transactions_ready_for_retry(&self) -> Result<Vec<FailedTransaction>>;
+    async fn update_failed_transaction_retry(
+        &self,
+        tx_hash: &str,
+        retry_count: i32,
+        next_retry_at: i64,
+        error_message: &str,
+    ) -> Result<()>;
+    async fn remove_failed_transaction(&self, tx_hash: &str) -> Result<()>;
+    async fn is_tx_in_failed_queue(&self, tx_hash: &str) -> Result<bool>;
 }
 
 pub struct SqliteDatabase {
@@ -40,6 +65,7 @@ impl SqliteDatabase {
             .connect(&db_url)
             .await?;
 
+        // create l2 batches txs table
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS l2_batches_txs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +74,22 @@ impl SqliteDatabase {
                 analysis_result TEXT NOT NULL,
                 timestamp INTEGER NOT NULL,
                 last_analyzed_block INTEGER
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        // create failed transactions table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS failed_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tx_hash TEXT NOT NULL UNIQUE,
+                batcher_address TEXT NOT NULL,
+                error_message TEXT NOT NULL,
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                next_retry_at INTEGER NOT NULL,
+                first_failed_at INTEGER NOT NULL,
+                last_attempted_at INTEGER NOT NULL
             )",
         )
         .execute(&pool)
@@ -111,5 +153,84 @@ impl Database for SqliteDatabase {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    async fn save_failed_transaction(&self, failed_tx: &FailedTransaction) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO failed_transactions (tx_hash, batcher_address, error_message, retry_count, next_retry_at, first_failed_at, last_attempted_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&failed_tx.tx_hash)
+        .bind(&failed_tx.batcher_address)
+        .bind(&failed_tx.error_message)
+        .bind(failed_tx.retry_count)
+        .bind(failed_tx.next_retry_at)
+        .bind(failed_tx.first_failed_at)
+        .bind(failed_tx.last_attempted_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_failed_transactions_ready_for_retry(&self) -> Result<Vec<FailedTransaction>> {
+        let current_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let transactions = sqlx::query_as::<_, FailedTransaction>(
+            "SELECT id, tx_hash, batcher_address, error_message, retry_count, next_retry_at, first_failed_at, last_attempted_at
+             FROM failed_transactions
+             WHERE next_retry_at <= ?
+             ORDER BY next_retry_at"
+        )
+        .bind(current_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(transactions)
+    }
+
+    async fn update_failed_transaction_retry(
+        &self,
+        tx_hash: &str,
+        retry_count: i32,
+        next_retry_at: i64,
+        error_message: &str,
+    ) -> Result<()> {
+        let current_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        sqlx::query(
+            "UPDATE failed_transactions SET retry_count = ?, next_retry_at = ?, error_message = ?, last_attempted_at = ?
+             WHERE tx_hash = ?",
+        )
+        .bind(retry_count)
+        .bind(next_retry_at)
+        .bind(error_message)
+        .bind(current_timestamp)
+        .bind(tx_hash)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn remove_failed_transaction(&self, tx_hash: &str) -> Result<()> {
+        sqlx::query("DELETE FROM failed_transactions WHERE tx_hash = ?")
+            .bind(tx_hash)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    async fn is_tx_in_failed_queue(&self, tx_hash: &str) -> Result<bool> {
+        let result = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM failed_transactions WHERE tx_hash = ?",
+        )
+        .bind(tx_hash)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(result > 0)
     }
 }

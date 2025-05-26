@@ -1,5 +1,6 @@
 use crate::provider::ProviderState;
 use crate::tracker::database::{Database, TrackedBatch};
+use crate::tracker::retry_handler::RetryHandler;
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
 use alloy_provider::Provider;
 use eyre::Result;
@@ -10,12 +11,18 @@ use tracing::{error, info};
 
 // Placeholder for the L2 batcher addresses
 static L2_BATCHERS_ADDRESSES: LazyLock<Vec<Address>> = LazyLock::new(|| {
-    let addresses = vec![Address::from_hex("0x5050F69a9786F081509234F1a7F4684b5E5b76C9").unwrap()]; // Base
+    let addresses = vec![
+        Address::from_hex("0x5050F69a9786F081509234F1a7F4684b5E5b76C9").unwrap(), // Base
+        Address::from_hex("0x6887246668a3b87F54DeB3b94Ba47a6f63F32985").unwrap(), // Optimism
+    ];
     addresses
 });
 
 pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderState) -> Result<()> {
     info!("L2 Batches Monitoring Service: Initializing...");
+
+    // create retry handler for failed transactions
+    let retry_handler = RetryHandler::new(db.clone(), provider_state.clone());
 
     loop {
         info!(
@@ -62,6 +69,12 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                             continue;
                         }
 
+                        // check if transaction is already in failed queue
+                        if db.is_tx_in_failed_queue(&tx_hash).await? {
+                            info!("Skipping transaction already in retry queue: {}", tx_hash);
+                            continue;
+                        }
+
                         info!("Processing new transaction: {}", tx_hash);
 
                         // analyze the transaction using provider_state
@@ -79,9 +92,24 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                             })?,
                             Err(e) => {
                                 error!(
-                                    "Failed to analyze transaction {}: {}. Skipping...",
+                                    "Failed to analyze transaction {}: {}. Adding to retry queue...",
                                     tx_hash, e
                                 );
+
+                                // save failed transaction to retry queue instead of skipping
+                                if let Err(retry_err) = retry_handler
+                                    .save_failed_transaction(
+                                        &tx_hash,
+                                        &format!("{:#x}", batcher_address),
+                                        &e.to_string(),
+                                    )
+                                    .await
+                                {
+                                    error!(
+                                        "Failed to save transaction to retry queue: {}",
+                                        retry_err
+                                    );
+                                }
                                 continue;
                             }
                         };

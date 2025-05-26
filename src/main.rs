@@ -6,6 +6,7 @@ use pectralizer::{
     tracker::{
         self,
         database::{Database, SqliteDatabase},
+        retry_handler::RetryHandler,
     },
 };
 use std::sync::Arc;
@@ -38,8 +39,25 @@ async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyr
         .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
     let db_conn_arc: Arc<dyn Database> = Arc::new(db_instance); // Type is Arc<dyn Database>
 
-    info!("Starting L2 batches monitoring service...");
-    tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state).await?;
+    // create retry handler for failed transactions
+    let retry_handler = RetryHandler::new(db_conn_arc.clone(), provider_state.clone());
+
+    info!("Starting L2 batches monitoring service and retry handler...");
+
+    // run both monitoring and retry services concurrently
+    tokio::select! {
+        res = tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state.clone()) => {
+            if let Err(e) = res {
+                error!("L2 monitor error: {:?}", e);
+            }
+        },
+        res = retry_handler.start_retry_loop() => {
+            if let Err(e) = res {
+                error!("Retry handler error: {:?}", e);
+            }
+        },
+    }
+
     Ok(())
 }
 
