@@ -21,7 +21,7 @@ static L2_BATCHERS_ADDRESSES: LazyLock<Vec<Address>> = LazyLock::new(|| {
 pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderState) -> Result<()> {
     info!("L2 Batches Monitoring Service: Initializing...");
 
-    // Create retry handler for failed transactions
+    // create retry handler for failed transactions
     let retry_handler = RetryHandler::new(db.clone(), provider_state.clone());
 
     loop {
