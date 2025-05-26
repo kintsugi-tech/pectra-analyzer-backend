@@ -18,7 +18,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
 
     loop {
         println!(
-            "L2 Batches Monitoring Service: Starting hourly check for new transactions. Monitored addresses: {:?}",
+            "L2 Batches Monitoring Service: Starting check for new transactions. Monitored addresses: {:?}",
             L2_BATCHERS_ADDRESSES
                 .iter()
                 .map(|a| format!("{:#x}", a))
@@ -40,16 +40,10 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                 batcher_address
             );
 
-            // get (up to 200) normal transactions from Etherscan
+            // get (up to 10) normal transactions from Etherscan
             match provider_state
                 .etherscan_provider
-                .get_normal_txs(
-                    batcher_address,
-                    1, // mainnet chain ID
-                    start_block,
-                    current_block,
-                    200,
-                )
+                .get_normal_txs(batcher_address, start_block, current_block, 10)
                 .await
             {
                 Ok(response) => {
@@ -69,7 +63,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
 
                         println!("Processing new transaction: {}", tx_hash);
 
-                        // Analyze the transaction using provider_state
+                        // analyze the transaction using provider_state
                         let tx_hash_bytes = FixedBytes::from_hex(&tx_hash)
                             .map_err(|e| eyre::eyre!("Failed to parse transaction hash: {}", e))?;
 
@@ -103,7 +97,7 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
                             last_analyzed_block: None,
                         };
 
-                        // Save to database
+                        // save to database
                         if let Err(e) = db.save_tracked_batch(&tracked_batch).await {
                             eprintln!(
                                 "Failed to save transaction {}: {}",
@@ -123,12 +117,14 @@ pub async fn start_monitoring(db: Arc<dyn Database>, provider_state: ProviderSta
             }
         }
 
-        // Update the last analyzed block
+        // update the last analyzed block
         if let Err(e) = db.update_last_analyzed_block(current_block).await {
             eprintln!("Failed to update last analyzed block: {}", e);
         }
 
-        println!("L2 Batches Monitoring Service: Completed hourly check. Sleeping for 1 hour...");
-        tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+        println!(
+            "L2 Batches Monitoring Service: Completed hourly check. Sleeping for 2 minutes..."
+        );
+        tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
     }
 }

@@ -173,26 +173,14 @@ pub async fn contract_handler(
     // get last (up to 5) internal transactions
     let internal_txs = provider_state
         .etherscan_provider
-        .get_internal_txs(
-            contract_address,
-            chain_id,
-            start_block,
-            last_block_number,
-            5,
-        )
+        .get_internal_txs(contract_address, start_block, last_block_number, 5)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get internal txs: {}", e)))?;
     tx_list.extend(internal_txs.result.iter().map(|tx| tx.hash));
     // get last (up to 5) normal transactions
     let normal_txs = provider_state
         .etherscan_provider
-        .get_normal_txs(
-            contract_address,
-            chain_id,
-            start_block,
-            last_block_number,
-            5,
-        )
+        .get_normal_txs(contract_address, start_block, last_block_number, 5)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get normal txs: {}", e)))?;
     tx_list.extend(normal_txs.result.iter().map(|tx| tx.hash));

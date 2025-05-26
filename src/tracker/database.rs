@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use eyre::Result;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
-// This struct might need to be a bit more generic or defined outside if multiple DBs have different needs
-// For now, keeping it as is for simplicity of refactoring existing code.
-#[derive(Debug, Clone, sqlx::FromRow)] // Added sqlx::FromRow for query_as potential
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TrackedBatch {
     // sqlx::FromRow requires fields to match column names or use #[sqlx(rename = "...")]
     // Assuming id is not always fetched or used directly in inserts by this struct, keeping Option.

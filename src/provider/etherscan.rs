@@ -54,8 +54,8 @@ impl EtherscanProvider {
         offset: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
-            "{}?chainid={}&module=account&action=txlistinternal&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
+            "{}?chainid={}&module=account&action=txlistinternal&address={}&startblock={}&endblock={}&page=1&offset={}&sort=asc&apikey={}",
+            self.endpoint, self.chain_id, address, start_block, end_block, offset, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;
@@ -71,8 +71,8 @@ impl EtherscanProvider {
         offset: u64,
     ) -> eyre::Result<EtherscanResponse> {
         let url = format!(
-            "{}?chainid={}&module=account&action=txlist&address={}&startblock={}&endblock={}&page=1&offset=5&sort=asc&apikey={}",
-            self.endpoint, self.chain_id, address, start_block, end_block, self.api_key,
+            "{}?chainid={}&module=account&action=txlist&address={}&startblock={}&endblock={}&page=1&offset={}&sort=asc&apikey={}",
+            self.endpoint, self.chain_id, address, start_block, end_block, offset, self.api_key,
         );
         let response = self.client.get(url).send().await?;
         let txs: EtherscanResponse = response.json().await?;
