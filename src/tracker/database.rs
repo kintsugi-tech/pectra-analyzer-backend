@@ -157,7 +157,7 @@ impl Database for SqliteDatabase {
              VALUES (?, ?, ?, ?, NULL)", // last_analyzed_block is NULL for normal txs
         )
         .bind(&batch.tx_hash)
-        .bind(&batch.batcher_address)
+        .bind(&batch.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
         .bind(&batch.analysis_result)
         .bind(batch.timestamp) // sqlx can map i64 to INTEGER
         .execute(&self.pool)
@@ -191,7 +191,7 @@ impl Database for SqliteDatabase {
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&failed_tx.tx_hash)
-        .bind(&failed_tx.batcher_address)
+        .bind(&failed_tx.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
         .bind(&failed_tx.error_message)
         .bind(failed_tx.retry_count)
         .bind(failed_tx.next_retry_at)
@@ -272,7 +272,7 @@ impl Database for SqliteDatabase {
     ) -> Result<u64> {
         let count = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM l2_batches_txs 
-             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             WHERE batcher_address = LOWER(?) AND timestamp >= ? AND timestamp <= ? 
              AND tx_hash != 'monitoring_state'",
         )
         .bind(batcher_address)
@@ -292,7 +292,7 @@ impl Database for SqliteDatabase {
     ) -> Result<u128> {
         let rows = sqlx::query(
             "SELECT analysis_result FROM l2_batches_txs 
-             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             WHERE batcher_address = LOWER(?) AND timestamp >= ? AND timestamp <= ? 
              AND tx_hash != 'monitoring_state'",
         )
         .bind(batcher_address)
@@ -330,7 +330,7 @@ impl Database for SqliteDatabase {
     ) -> Result<u64> {
         let rows = sqlx::query(
             "SELECT analysis_result FROM l2_batches_txs 
-             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             WHERE batcher_address = LOWER(?) AND timestamp >= ? AND timestamp <= ? 
              AND tx_hash != 'monitoring_state'",
         )
         .bind(batcher_address)
@@ -359,7 +359,7 @@ impl Database for SqliteDatabase {
     ) -> Result<u64> {
         let rows = sqlx::query(
             "SELECT analysis_result FROM l2_batches_txs 
-             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             WHERE batcher_address = LOWER(?) AND timestamp >= ? AND timestamp <= ? 
              AND tx_hash != 'monitoring_state'",
         )
         .bind(batcher_address)
@@ -378,5 +378,114 @@ impl Database for SqliteDatabase {
         }
 
         Ok(total_pectra_gas)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use tempfile::NamedTempFile;
+
+    async fn create_test_database() -> Result<SqliteDatabase> {
+        let temp_file = NamedTempFile::new()?;
+        let db_path = temp_file.path().to_str().unwrap();
+        let db = SqliteDatabase::new(db_path, 0).await?;
+        
+        // prevent the temp file from being deleted
+        std::mem::forget(temp_file);
+        
+        Ok(db)
+    }
+
+    #[tokio::test]
+    async fn test_case_insensitive_batcher_address_search() -> Result<()> {
+        let db = create_test_database().await?;
+        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // create test data with mixed case address
+        let mixed_case_address = "0x5050F69a9786F081509234F1a7F4684b5E5b76C9"; // Mixed case
+        let batch = TrackedBatch {
+            id: None,
+            tx_hash: "0xtest123".to_string(),
+            batcher_address: mixed_case_address.to_string(),
+            analysis_result: r#"{"blob_gas_used": 100000, "eip_7623_calldata_gas": 5000, "blob_data_wei_spent": 2000000000000000, "eip_7623_calldata_wei_spent": 3000000000000000}"#.to_string(),
+            timestamp: now,
+            last_analyzed_block: None,
+        };
+
+        // save the batch (should be stored in lowercase)
+        db.save_tracked_batch(&batch).await?;
+
+        // test searches with different cases
+        let test_cases = vec![
+            "0x5050f69a9786f081509234f1a7f4684b5e5b76c9", // all lowercase
+            "0x5050F69A9786F081509234F1A7F4684B5E5B76C9", // all uppercase
+            "0x5050F69a9786F081509234F1a7F4684b5E5b76C9", // mixed case (original)
+        ];
+
+        for test_address in test_cases {
+            println!("Testing address: {}", test_address);
+            
+            // test get_daily_transactions
+            let count = db.get_daily_transactions(test_address, now - 100, now + 100).await?;
+            assert_eq!(count, 1, "get_daily_transactions failed for address: {}", test_address);
+            
+            // test get_total_blob_data_gas  
+            let blob_gas = db.get_total_blob_data_gas(test_address, now - 100, now + 100).await?;
+            assert_eq!(blob_gas, 100000, "get_total_blob_data_gas failed for address: {}", test_address);
+            
+            // test get_total_pectra_data_gas
+            let pectra_gas = db.get_total_pectra_data_gas(test_address, now - 100, now + 100).await?;
+            assert_eq!(pectra_gas, 5000, "get_total_pectra_data_gas failed for address: {}", test_address);
+
+            // test get_eth_saved_data
+            let eth_saved = db.get_eth_saved_data(test_address, now - 100, now + 100).await?;
+            assert_eq!(eth_saved, 1000000000000000, "get_eth_saved_data failed for address: {}", test_address); // 3000000000000000 - 2000000000000000
+        }
+
+        println!("✅ All case insensitive tests passed!");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batcher_address_stored_as_lowercase() -> Result<()> {
+        let db = create_test_database().await?;
+        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // create test data with mixed case address
+        let mixed_case_address = "0x5050F69a9786F081509234F1a7F4684b5E5b76C9";
+        let batch = TrackedBatch {
+            id: None,
+            tx_hash: "0xtest456".to_string(),
+            batcher_address: mixed_case_address.to_string(),
+            analysis_result: r#"{"blob_gas_used": 50000}"#.to_string(),
+            timestamp: now,
+            last_analyzed_block: None,
+        };
+
+        // save the batch
+        db.save_tracked_batch(&batch).await?;
+
+        // verify that the address is stored in lowercase by checking the raw database
+        let stored_address = sqlx::query_scalar::<_, String>(
+            "SELECT batcher_address FROM l2_batches_txs WHERE tx_hash = ?",
+        )
+        .bind("0xtest456")
+        .fetch_one(&db.pool)
+        .await?;
+
+        assert_eq!(stored_address, "0x5050f69a9786f081509234f1a7f4684b5e5b76c9");
+        println!("✅ Address stored in lowercase as expected!");
+        
+        Ok(())
     }
 }
