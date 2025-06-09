@@ -94,6 +94,10 @@ Example:
 curl "http://localhost:3000/contract?contract_address=0x41dDf7fC14a579E0F3f2D698e14c76d9d486B9F7"
 ```
 
+### APIs to read historical data
+
+See in the [related doc](/API_ENDPOINTS.md).
+
 ## Development
 
 1. Clone the repository:
