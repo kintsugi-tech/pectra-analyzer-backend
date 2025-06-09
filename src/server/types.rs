@@ -55,3 +55,72 @@ pub struct ContractAnalysisResponse {
     /// The number of transactions influenced by EIP-7623.
     pub influenced: u64,
 }
+
+/// Query parameters for daily transactions endpoint.
+#[derive(Deserialize, Debug)]
+pub struct DailyTxsQuery {
+    /// The batcher address to filter by.
+    pub batcher_address: String,
+    /// Timestamp start (Unix timestamp).
+    pub start_timestamp: i64,
+    /// Timestamp end (Unix timestamp).
+    pub end_timestamp: i64,
+}
+
+/// Response structure for daily transactions endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct DailyTxsResponse {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// The number of transactions.
+    pub tx_count: u64,
+}
+
+/// Query parameters for ETH saved endpoint.
+#[derive(Deserialize, Debug)]
+pub struct EthSavedQuery {
+    /// The batcher address to filter by.
+    pub batcher_address: String,
+    /// Timestamp start (Unix timestamp).
+    pub start_timestamp: i64,
+    /// Timestamp end (Unix timestamp).
+    pub end_timestamp: i64,
+}
+
+/// Response structure for ETH saved endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct EthSavedResponse {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total ETH saved in wei.
+    pub total_eth_saved_wei: u128,
+}
+
+/// Query parameters for gas usage endpoints.
+#[derive(Deserialize, Debug)]
+pub struct GasUsageQuery {
+    /// The batcher address to filter by.
+    pub batcher_address: String,
+    /// Timestamp start (Unix timestamp).
+    pub start_timestamp: i64,
+    /// Timestamp end (Unix timestamp).
+    pub end_timestamp: i64,
+}
+
+/// Response structure for blob data gas endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BlobDataGasResponse {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total blob data gas used.
+    pub total_blob_data_gas: u64,
+}
+
+/// Response structure for Pectra data gas endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct PectraDataGasResponse {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total Pectra (EIP-7623) calldata gas used.
+    pub total_pectra_data_gas: u64,
+}
