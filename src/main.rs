@@ -172,44 +172,27 @@ mod tests {
     use pectralizer::{
         provider::ProviderState,
         server::{
-            handlers::{contract_handler, tx_handler, daily_txs_handler, eth_saved_handler, blob_data_gas_handler, pectra_data_gas_handler},
-            types::{ContractQuery, TxAnalysisResponse, TxHashQuery, DailyTxsQuery, EthSavedQuery, GasUsageQuery},
             AppState,
+            handlers::{
+                blob_data_gas_handler, contract_handler, daily_txs_handler, eth_saved_handler,
+                pectra_data_gas_handler, tx_handler,
+            },
+            types::{
+                ContractQuery, DailyTxsQuery, EthSavedQuery, GasUsageQuery, TxAnalysisResponse,
+                TxHashQuery,
+            },
         },
         tracker::database::{Database, SqliteDatabase, TrackedBatch},
     };
     use std::sync::Arc;
     use tempfile::NamedTempFile;
 
-    /// Helper function to create a test AppState with a temporary database
+    /// Helper function to create a test AppState.
     async fn create_test_app_state() -> AppState {
-        let provider_state = ProviderState::new(
-            "https://eth.merkle.io",
-            "https://eth.merkle.io", // Using same URL as placeholder since we don't need Etherscan for basic tx tests
-            NamedChain::Mainnet.into(),
-        )
-        .await;
-
-        // Create a temporary database file that will be automatically deleted
-        let temp_file = NamedTempFile::new().unwrap();
-        let db_path = temp_file.path().to_str().unwrap().to_string();
-        // Keep the temp file alive by storing it in the AppState (we'll leak it for test purposes)
-        std::mem::forget(temp_file);
-        let db = SqliteDatabase::new(&db_path, 0).await.unwrap();
-        let db_arc: Arc<dyn Database> = Arc::new(db);
-
-        AppState {
-            provider_state,
-            db: db_arc,
-        }
-    }
-
-    /// Helper function to create a test AppState with Etherscan API
-    async fn create_test_app_state_with_etherscan() -> AppState {
         // load .env environment variables
         dotenv::dotenv().ok();
-        let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
-            .unwrap_or_else(|_| "demo".to_string()); // Use demo key if not set
+        let etherscan_api_key =
+            std::env::var("ETHERSCAN_API_KEY").unwrap_or_else(|_| "demo".to_string()); // Use demo key if not set
         let provider_state = ProviderState::new(
             "https://eth.merkle.io",
             &etherscan_api_key,
@@ -234,8 +217,8 @@ mod tests {
     async fn create_test_app_state_sepolia() -> AppState {
         // load .env environment variables
         dotenv::dotenv().ok();
-        let etherscan_api_key = std::env::var("ETHERSCAN_API_KEY")
-            .unwrap_or_else(|_| "demo".to_string()); // Use demo key if not set
+        let etherscan_api_key =
+            std::env::var("ETHERSCAN_API_KEY").unwrap_or_else(|_| "demo".to_string()); // Use demo key if not set
         let provider_state = ProviderState::new(
             "https://ethereum-sepolia-rpc.publicnode.com",
             &etherscan_api_key,
@@ -263,9 +246,7 @@ mod tests {
             tx_hash: "0xd367c556c43058a3718362a0b2e624471c69e7f00846fe4474469a9895310bbd"
                 .to_string(),
         };
-        let response = tx_handler(State(app_state), Query(query))
-            .await
-            .unwrap();
+        let response = tx_handler(State(app_state), Query(query)).await.unwrap();
         let expected_response = TxAnalysisResponse {
             timestamp: 1746290387,
             gas_used: 74557,
@@ -289,17 +270,23 @@ mod tests {
                 .to_string(),
         };
         let response = tx_handler(State(app_state), Query(query)).await;
-        
+
         // Handle the case where blob data might not be available from the RPC endpoint
         match response {
             Ok(response) => {
                 // If successful, verify it's a blob transaction
                 assert!(response.0.blob_gas_used > 0);
-                println!("Blob transaction test passed: blob_gas_used = {}", response.0.blob_gas_used);
+                println!(
+                    "Blob transaction test passed: blob_gas_used = {}",
+                    response.0.blob_gas_used
+                );
             }
             Err(e) => {
                 // If it fails due to blob data issues, that's expected for some RPC endpoints
-                println!("Blob transaction test skipped due to RPC limitations: {:?}", e);
+                println!(
+                    "Blob transaction test skipped due to RPC limitations: {:?}",
+                    e
+                );
             }
         }
     }
@@ -312,24 +299,30 @@ mod tests {
                 .to_string(),
         };
         let response = tx_handler(State(app_state), Query(query)).await;
-        
+
         // Handle the case where blob data might not be available from the RPC endpoint
         match response {
             Ok(response) => {
                 // If successful, verify it's a blob transaction
                 assert!(response.0.blob_gas_used > 0);
-                println!("Sepolia blob transaction test passed: blob_gas_used = {}", response.0.blob_gas_used);
+                println!(
+                    "Sepolia blob transaction test passed: blob_gas_used = {}",
+                    response.0.blob_gas_used
+                );
             }
             Err(e) => {
                 // If it fails due to blob data issues, that's expected for some RPC endpoints
-                println!("Sepolia blob transaction test skipped due to RPC limitations: {:?}", e);
+                println!(
+                    "Sepolia blob transaction test skipped due to RPC limitations: {:?}",
+                    e
+                );
             }
         }
     }
 
     #[tokio::test]
     async fn test_contract_handler() {
-        let app_state = create_test_app_state_with_etherscan().await;
+        let app_state = create_test_app_state().await;
         let query = ContractQuery {
             contract_address: "0x41dDf7fC14a579E0F3f2D698e14c76d9d486B9F7".to_string(),
         };
@@ -362,7 +355,7 @@ mod tests {
         let response = daily_txs_handler(State(app_state), Query(query))
             .await
             .unwrap();
-        
+
         // Since we have an empty database, expect 0 transactions
         assert_eq!(response.0.batcher_address, "0x123abc");
         assert_eq!(response.0.tx_count, 0);
@@ -379,7 +372,7 @@ mod tests {
         let response = eth_saved_handler(State(app_state), Query(query))
             .await
             .unwrap();
-        
+
         // Since we have an empty database, expect 0 ETH saved
         assert_eq!(response.0.batcher_address, "0x456def");
         assert_eq!(response.0.total_eth_saved_wei, 0);
@@ -396,7 +389,7 @@ mod tests {
         let response = blob_data_gas_handler(State(app_state), Query(query))
             .await
             .unwrap();
-        
+
         // Since we have an empty database, expect 0 gas
         assert_eq!(response.0.total_blob_data_gas, 0);
     }
@@ -412,7 +405,7 @@ mod tests {
         let response = pectra_data_gas_handler(State(app_state), Query(query))
             .await
             .unwrap();
-        
+
         // Since we have an empty database, expect 0 gas
         assert_eq!(response.0.total_pectra_data_gas, 0);
     }
@@ -420,7 +413,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_operations() {
         let app_state = create_test_app_state().await;
-        
+
         // Test inserting a tracked batch
         let batch = TrackedBatch {
             id: None,
@@ -430,13 +423,17 @@ mod tests {
             timestamp: 1600000000,
             last_analyzed_block: None,
         };
-        
+
         app_state.db.save_tracked_batch(&batch).await.unwrap();
-        
+
         // Test that the transaction is now tracked
-        let is_tracked = app_state.db.is_tx_already_tracked("0x1234567890abcdef").await.unwrap();
+        let is_tracked = app_state
+            .db
+            .is_tx_already_tracked("0x1234567890abcdef")
+            .await
+            .unwrap();
         assert!(is_tracked);
-        
+
         // Test daily transactions query with data
         let query = DailyTxsQuery {
             batcher_address: "0xbatcher123".to_string(),
@@ -446,10 +443,10 @@ mod tests {
         let response = daily_txs_handler(State(app_state.clone()), Query(query))
             .await
             .unwrap();
-        
+
         assert_eq!(response.0.batcher_address, "0xbatcher123");
         assert_eq!(response.0.tx_count, 1);
-        
+
         // Test ETH saved query with data
         let query = EthSavedQuery {
             batcher_address: "0xbatcher123".to_string(),
@@ -459,10 +456,10 @@ mod tests {
         let response = eth_saved_handler(State(app_state.clone()), Query(query))
             .await
             .unwrap();
-        
+
         assert_eq!(response.0.batcher_address, "0xbatcher123");
         assert_eq!(response.0.total_eth_saved_wei, 1000000); // 2000000 - 1000000 = 1000000
-        
+
         // Test blob data gas query with data
         let query = GasUsageQuery {
             batcher_address: "0xbatcher123".to_string(),
@@ -472,9 +469,9 @@ mod tests {
         let response = blob_data_gas_handler(State(app_state.clone()), Query(query))
             .await
             .unwrap();
-        
+
         assert_eq!(response.0.total_blob_data_gas, 131072);
-        
+
         // Test Pectra data gas query with data
         let query = GasUsageQuery {
             batcher_address: "0xbatcher123".to_string(),
@@ -484,14 +481,14 @@ mod tests {
         let response = pectra_data_gas_handler(State(app_state), Query(query))
             .await
             .unwrap();
-        
+
         assert_eq!(response.0.total_pectra_data_gas, 1000);
     }
 
     #[tokio::test]
     async fn test_multiple_batchers_isolation() {
         let app_state = create_test_app_state().await;
-        
+
         // Insert data for multiple batchers
         let batch1 = TrackedBatch {
             id: None,
@@ -501,7 +498,7 @@ mod tests {
             timestamp: 1600000000,
             last_analyzed_block: None,
         };
-        
+
         let batch2 = TrackedBatch {
             id: None,
             tx_hash: "0x2222222222222222".to_string(),
@@ -510,10 +507,10 @@ mod tests {
             timestamp: 1600000000,
             last_analyzed_block: None,
         };
-        
+
         app_state.db.save_tracked_batch(&batch1).await.unwrap();
         app_state.db.save_tracked_batch(&batch2).await.unwrap();
-        
+
         // Test that batcher1 data is isolated
         let query1 = DailyTxsQuery {
             batcher_address: "0xbatcher1".to_string(),
@@ -523,10 +520,10 @@ mod tests {
         let response1 = daily_txs_handler(State(app_state.clone()), Query(query1))
             .await
             .unwrap();
-        
+
         assert_eq!(response1.0.batcher_address, "0xbatcher1");
         assert_eq!(response1.0.tx_count, 1);
-        
+
         // Test that batcher2 data is isolated
         let query2 = DailyTxsQuery {
             batcher_address: "0xbatcher2".to_string(),
@@ -536,10 +533,10 @@ mod tests {
         let response2 = daily_txs_handler(State(app_state.clone()), Query(query2))
             .await
             .unwrap();
-        
+
         assert_eq!(response2.0.batcher_address, "0xbatcher2");
         assert_eq!(response2.0.tx_count, 1);
-        
+
         // Test ETH saved isolation
         let eth_query1 = EthSavedQuery {
             batcher_address: "0xbatcher1".to_string(),
@@ -549,9 +546,9 @@ mod tests {
         let eth_response1 = eth_saved_handler(State(app_state.clone()), Query(eth_query1))
             .await
             .unwrap();
-        
+
         assert_eq!(eth_response1.0.total_eth_saved_wei, 500000); // 1000000 - 500000
-        
+
         let eth_query2 = EthSavedQuery {
             batcher_address: "0xbatcher2".to_string(),
             start_timestamp: 1500000000,
@@ -560,7 +557,7 @@ mod tests {
         let eth_response2 = eth_saved_handler(State(app_state), Query(eth_query2))
             .await
             .unwrap();
-        
+
         assert_eq!(eth_response2.0.total_eth_saved_wei, 700000); // 1500000 - 800000
     }
 }
