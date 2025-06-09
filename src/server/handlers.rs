@@ -271,6 +271,7 @@ pub async fn blob_data_gas_handler(
         .map_err(|e| HandlerError::DatabaseError(format!("Failed to get blob data gas: {}", e)))?;
 
     Ok(Json(BlobDataGasResponse {
+        batcher_address: query.batcher_address,
         total_blob_data_gas,
     }))
 }
@@ -293,6 +294,7 @@ pub async fn pectra_data_gas_handler(
         })?;
 
     Ok(Json(PectraDataGasResponse {
+        batcher_address: query.batcher_address,
         total_pectra_data_gas,
     }))
 }

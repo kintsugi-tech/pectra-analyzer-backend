@@ -110,6 +110,8 @@ pub struct GasUsageQuery {
 /// Response structure for blob data gas endpoint.
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct BlobDataGasResponse {
+    /// The batcher address.
+    pub batcher_address: String,
     /// Total blob data gas used.
     pub total_blob_data_gas: u64,
 }
@@ -117,6 +119,8 @@ pub struct BlobDataGasResponse {
 /// Response structure for Pectra data gas endpoint.
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub struct PectraDataGasResponse {
+    /// The batcher address.
+    pub batcher_address: String,
     /// Total Pectra (EIP-7623) calldata gas used.
     pub total_pectra_data_gas: u64,
 }

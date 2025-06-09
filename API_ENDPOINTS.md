@@ -73,6 +73,7 @@ GET /blob_data_gas?batcher_address=0x5050F69a9786F081509234F1a7F4684b5E5b76C9&st
 **Response:**
 ```json
 {
+  "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
   "total_blob_data_gas": 1234567890
 }
 ```
@@ -94,6 +95,7 @@ GET /pectra_data_gas?batcher_address=0x5050F69a9786F081509234F1a7F4684b5E5b76C9&
 **Response:**
 ```json
 {
+  "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
   "total_pectra_data_gas": 9876543210
 }
 ```
