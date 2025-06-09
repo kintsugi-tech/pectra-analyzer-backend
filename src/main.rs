@@ -24,35 +24,16 @@ use tracing_subscriber::EnvFilter;
 const DB_PATH: &str = "./l2_batches_monitoring.db";
 
 /// Run the L2 proposers monitoring service.
-async fn run_l2_batches_monitoring_service(provider_state: ProviderState) -> eyre::Result<()> {
+async fn run_l2_batches_monitoring_service(app_state: AppState) -> eyre::Result<()> {
     info!("Initializing L2 batches monitoring database...");
-
-    // get current block number for initial setup
-    let initial_block = provider_state
-        .ethereum_provider
-        .get_block_number()
-        .await
-        .map_err(|e| {
-            eyre::eyre!(
-                "Failed to get current block number for DB initialization: {}",
-                e
-            )
-        })?;
-
-    // initialize the database using SqliteDatabase::new
-    let db_instance = SqliteDatabase::new(DB_PATH, initial_block)
-        .await // SqliteDatabase::new is async
-        .map_err(|e| eyre::eyre!("Failed to initialize L2 batches monitoring database: {}", e))?;
-    let db_conn_arc: Arc<dyn Database> = Arc::new(db_instance); // Type is Arc<dyn Database>
-
     // create retry handler for failed transactions
-    let retry_handler = RetryHandler::new(db_conn_arc.clone(), provider_state.clone());
+    let retry_handler = RetryHandler::new(app_state.db.clone(), app_state.provider_state.clone());
 
     info!("Starting L2 batches monitoring service and retry handler...");
 
     // run both monitoring and retry services concurrently
     tokio::select! {
-        res = tracker::l2_monitor::start_monitoring(db_conn_arc, provider_state.clone()) => {
+        res = tracker::l2_monitor::start_monitoring(app_state.db, app_state.provider_state) => {
             if let Err(e) = res {
                 error!("L2 monitor error: {:?}", e);
             }
@@ -90,7 +71,6 @@ async fn main() -> eyre::Result<()> {
     // initialize shared provider state
     let provider_state =
         ProviderState::new(&ethereum_provider_url, &etherscan_api_key, chain_id).await;
-    let provider_state_for_tracker = provider_state.clone();
 
     // initialize the database for API endpoints
     let current_block = provider_state
@@ -131,7 +111,7 @@ async fn main() -> eyre::Result<()> {
         .route("/blob_data_gas", get(blob_data_gas_handler))
         .route("/pectra_data_gas", get(pectra_data_gas_handler))
         .layer(CorsLayer::permissive())
-        .with_state(app_state);
+        .with_state(app_state.clone());
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -155,7 +135,7 @@ async fn main() -> eyre::Result<()> {
                 error!("Axum server error: {:?}", e);
             }
         },
-        res = run_l2_batches_monitoring_service(provider_state_for_tracker) => {
+        res = run_l2_batches_monitoring_service(app_state) => {
             if let Err(e) = res {
                 error!("L2 tracker service error: {:?}", e);
             }

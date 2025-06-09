@@ -157,7 +157,7 @@ impl Database for SqliteDatabase {
              VALUES (?, ?, ?, ?, NULL)", // last_analyzed_block is NULL for normal txs
         )
         .bind(&batch.tx_hash)
-        .bind(&batch.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
+        .bind(batch.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
         .bind(&batch.analysis_result)
         .bind(batch.timestamp) // sqlx can map i64 to INTEGER
         .execute(&self.pool)
@@ -191,7 +191,7 @@ impl Database for SqliteDatabase {
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&failed_tx.tx_hash)
-        .bind(&failed_tx.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
+        .bind(failed_tx.batcher_address.to_lowercase()) // Store addresses in lowercase for consistency
         .bind(&failed_tx.error_message)
         .bind(failed_tx.retry_count)
         .bind(failed_tx.next_retry_at)
@@ -391,17 +391,17 @@ mod tests {
         let temp_file = NamedTempFile::new()?;
         let db_path = temp_file.path().to_str().unwrap();
         let db = SqliteDatabase::new(db_path, 0).await?;
-        
+
         // prevent the temp file from being deleted
         std::mem::forget(temp_file);
-        
+
         Ok(db)
     }
 
     #[tokio::test]
     async fn test_case_insensitive_batcher_address_search() -> Result<()> {
         let db = create_test_database().await?;
-        
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -430,22 +430,46 @@ mod tests {
 
         for test_address in test_cases {
             println!("Testing address: {}", test_address);
-            
+
             // test get_daily_transactions
-            let count = db.get_daily_transactions(test_address, now - 100, now + 100).await?;
-            assert_eq!(count, 1, "get_daily_transactions failed for address: {}", test_address);
-            
-            // test get_total_blob_data_gas  
-            let blob_gas = db.get_total_blob_data_gas(test_address, now - 100, now + 100).await?;
-            assert_eq!(blob_gas, 100000, "get_total_blob_data_gas failed for address: {}", test_address);
-            
+            let count = db
+                .get_daily_transactions(test_address, now - 100, now + 100)
+                .await?;
+            assert_eq!(
+                count, 1,
+                "get_daily_transactions failed for address: {}",
+                test_address
+            );
+
+            // test get_total_blob_data_gas
+            let blob_gas = db
+                .get_total_blob_data_gas(test_address, now - 100, now + 100)
+                .await?;
+            assert_eq!(
+                blob_gas, 100000,
+                "get_total_blob_data_gas failed for address: {}",
+                test_address
+            );
+
             // test get_total_pectra_data_gas
-            let pectra_gas = db.get_total_pectra_data_gas(test_address, now - 100, now + 100).await?;
-            assert_eq!(pectra_gas, 5000, "get_total_pectra_data_gas failed for address: {}", test_address);
+            let pectra_gas = db
+                .get_total_pectra_data_gas(test_address, now - 100, now + 100)
+                .await?;
+            assert_eq!(
+                pectra_gas, 5000,
+                "get_total_pectra_data_gas failed for address: {}",
+                test_address
+            );
 
             // test get_eth_saved_data
-            let eth_saved = db.get_eth_saved_data(test_address, now - 100, now + 100).await?;
-            assert_eq!(eth_saved, 1000000000000000, "get_eth_saved_data failed for address: {}", test_address); // 3000000000000000 - 2000000000000000
+            let eth_saved = db
+                .get_eth_saved_data(test_address, now - 100, now + 100)
+                .await?;
+            assert_eq!(
+                eth_saved, 1000000000000000,
+                "get_eth_saved_data failed for address: {}",
+                test_address
+            ); // 3000000000000000 - 2000000000000000
         }
 
         println!("✅ All case insensitive tests passed!");
@@ -455,7 +479,7 @@ mod tests {
     #[tokio::test]
     async fn test_batcher_address_stored_as_lowercase() -> Result<()> {
         let db = create_test_database().await?;
-        
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -485,7 +509,7 @@ mod tests {
 
         assert_eq!(stored_address, "0x5050f69a9786f081509234f1a7f4684b5e5b76c9");
         println!("✅ Address stored in lowercase as expected!");
-        
+
         Ok(())
     }
 }
