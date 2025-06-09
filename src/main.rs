@@ -2,7 +2,13 @@ use alloy_provider::Provider;
 use axum::{Router, routing::get};
 use pectralizer::{
     provider::ProviderState,
-    server::handlers::{contract_handler, root_handler, tx_handler},
+    server::{
+        AppState,
+        handlers::{
+            blob_data_gas_handler, contract_handler, daily_txs_handler, eth_saved_handler,
+            pectra_data_gas_handler, root_handler, tx_handler,
+        },
+    },
     tracker::{
         self,
         database::{Database, SqliteDatabase},
@@ -86,6 +92,29 @@ async fn main() -> eyre::Result<()> {
         ProviderState::new(&ethereum_provider_url, &etherscan_api_key, chain_id).await;
     let provider_state_for_tracker = provider_state.clone();
 
+    // initialize the database for API endpoints
+    let current_block = provider_state
+        .ethereum_provider
+        .get_block_number()
+        .await
+        .map_err(|e| {
+            eyre::eyre!(
+                "Failed to get current block number for API DB initialization: {}",
+                e
+            )
+        })?;
+
+    let db_instance = SqliteDatabase::new(DB_PATH, current_block)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to initialize database for API: {}", e))?;
+    let db_arc: Arc<dyn Database> = Arc::new(db_instance);
+
+    // create shared application state
+    let app_state = AppState {
+        provider_state,
+        db: db_arc,
+    };
+
     // get port from environment or use default
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let port: u16 = port
@@ -97,8 +126,12 @@ async fn main() -> eyre::Result<()> {
         .route("/", get(root_handler))
         .route("/tx", get(tx_handler))
         .route("/contract", get(contract_handler))
+        .route("/daily_txs", get(daily_txs_handler))
+        .route("/eth_saved", get(eth_saved_handler))
+        .route("/blob_data_gas", get(blob_data_gas_handler))
+        .route("/pectra_data_gas", get(pectra_data_gas_handler))
         .layer(CorsLayer::permissive())
-        .with_state(provider_state);
+        .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -110,6 +143,10 @@ async fn main() -> eyre::Result<()> {
     info!("   - GET  /           - Welcome message");
     info!("   - GET  /tx         - Transaction analysis");
     info!("   - GET  /contract   - Contract analysis");
+    info!("   - GET  /daily_txs  - Daily transactions analysis");
+    info!("   - GET  /eth_saved  - Ethereum saved analysis");
+    info!("   - GET  /blob_data_gas - Blob data gas analysis");
+    info!("   - GET  /pectra_data_gas - Pectra data gas analysis");
 
     // run both services concurrently
     tokio::select! {

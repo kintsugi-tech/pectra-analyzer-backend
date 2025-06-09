@@ -21,6 +21,8 @@ pub enum HandlerError {
     BlobDataNotFound(String),
     #[error("Contract is an EOA: {0}")]
     InvalidContract(String),
+    #[error("Database error: {0}")]
+    DatabaseError(String),
 }
 
 impl IntoResponse for HandlerError {
@@ -33,6 +35,7 @@ impl IntoResponse for HandlerError {
             HandlerError::BlobDataNotFound(_) => StatusCode::NOT_FOUND,
             HandlerError::BlockNotFound(_) => StatusCode::NOT_FOUND,
             HandlerError::InvalidContract(_) => StatusCode::BAD_REQUEST,
+            HandlerError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, self.to_string()).into_response()

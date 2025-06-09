@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use eyre::Result;
+use sqlx::Row;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -49,6 +50,35 @@ pub trait Database: Send + Sync {
     ) -> Result<()>;
     async fn remove_failed_transaction(&self, tx_hash: &str) -> Result<()>;
     async fn is_tx_in_failed_queue(&self, tx_hash: &str) -> Result<bool>;
+
+    // methods for L2 batch analytics
+    async fn get_daily_transactions(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64>; // tx_count for specific batcher
+
+    async fn get_eth_saved_data(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u128>; // total eth_saved_wei for specific batcher
+
+    async fn get_total_blob_data_gas(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64>;
+
+    async fn get_total_pectra_data_gas(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64>;
 }
 
 pub struct SqliteDatabase {
@@ -232,5 +262,121 @@ impl Database for SqliteDatabase {
         .fetch_one(&self.pool)
         .await?;
         Ok(result > 0)
+    }
+
+    async fn get_daily_transactions(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64> {
+        let count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM l2_batches_txs 
+             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(batcher_address)
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(count as u64)
+    }
+
+    async fn get_eth_saved_data(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u128> {
+        let rows = sqlx::query(
+            "SELECT analysis_result FROM l2_batches_txs 
+             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(batcher_address)
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut total_eth_saved = 0u128;
+        for row in rows {
+            let analysis_result: String = row.get("analysis_result");
+
+            // Parse the JSON analysis result to extract ETH saved data
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let blob_data_wei_spent =
+                    analysis["blob_data_wei_spent"].as_u64().unwrap_or(0) as u128;
+                let eip_7623_calldata_wei_spent = analysis["eip_7623_calldata_wei_spent"]
+                    .as_u64()
+                    .unwrap_or(0) as u128;
+
+                // Calculate ETH saved: difference between what would be spent on EIP-7623 and what was actually spent on blob data
+                let eth_saved_wei = eip_7623_calldata_wei_spent.saturating_sub(blob_data_wei_spent);
+                total_eth_saved += eth_saved_wei;
+            }
+        }
+
+        Ok(total_eth_saved)
+    }
+
+    async fn get_total_blob_data_gas(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64> {
+        let rows = sqlx::query(
+            "SELECT analysis_result FROM l2_batches_txs 
+             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(batcher_address)
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut total_blob_gas = 0u64;
+        for row in rows {
+            let analysis_result: String = row.get("analysis_result");
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let blob_gas_used = analysis["blob_gas_used"].as_u64().unwrap_or(0);
+                total_blob_gas += blob_gas_used;
+            }
+        }
+
+        Ok(total_blob_gas)
+    }
+
+    async fn get_total_pectra_data_gas(
+        &self,
+        batcher_address: &str,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<u64> {
+        let rows = sqlx::query(
+            "SELECT analysis_result FROM l2_batches_txs 
+             WHERE batcher_address = ? AND timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(batcher_address)
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut total_pectra_gas = 0u64;
+        for row in rows {
+            let analysis_result: String = row.get("analysis_result");
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let eip_7623_calldata_gas = analysis["eip_7623_calldata_gas"].as_u64().unwrap_or(0);
+                total_pectra_gas += eip_7623_calldata_gas;
+            }
+        }
+
+        Ok(total_pectra_gas)
     }
 }

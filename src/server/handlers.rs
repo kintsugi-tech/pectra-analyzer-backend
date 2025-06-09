@@ -1,6 +1,10 @@
 use super::{
     error::HandlerError,
-    types::{ContractAnalysisResponse, ContractQuery, TxAnalysisResponse, TxHashQuery},
+    types::{
+        BlobDataGasResponse, ContractAnalysisResponse, ContractQuery, DailyTxsQuery,
+        DailyTxsResponse, EthSavedQuery, EthSavedResponse, GasUsageQuery, PectraDataGasResponse,
+        TxAnalysisResponse, TxHashQuery,
+    },
 };
 use crate::{
     provider::ProviderState,
@@ -135,24 +139,25 @@ pub async fn analyze_transaction(
 }
 
 pub async fn tx_handler(
-    State(provider_state): State<ProviderState>,
+    State(app_state): State<super::AppState>,
     Query(query): Query<TxHashQuery>,
 ) -> Result<Json<TxAnalysisResponse>, HandlerError> {
     // transform tx hash into a fixed bytes
     let tx_hash_bytes = FixedBytes::from_hex(&query.tx_hash)
         .map_err(|_| HandlerError::InvalidHex(query.tx_hash))?;
-    let tx_analysis = analyze_transaction(&provider_state, tx_hash_bytes).await?;
+    let tx_analysis = analyze_transaction(&app_state.provider_state, tx_hash_bytes).await?;
     Ok(Json(tx_analysis))
 }
 
 pub async fn contract_handler(
-    State(provider_state): State<ProviderState>,
+    State(app_state): State<super::AppState>,
     Query(query): Query<ContractQuery>,
 ) -> Result<Json<ContractAnalysisResponse>, HandlerError> {
     let contract_address = Address::from_hex(&query.contract_address)
         .map_err(|_| HandlerError::InvalidHex(query.contract_address.clone()))?;
     // if EOA, return error
-    if provider_state
+    if app_state
+        .provider_state
         .ethereum_provider
         .get_code_at(contract_address)
         .await
@@ -161,7 +166,8 @@ pub async fn contract_handler(
     {
         return Err(HandlerError::InvalidContract(query.contract_address));
     }
-    let last_block_number = provider_state
+    let last_block_number = app_state
+        .provider_state
         .ethereum_provider
         .get_block_number()
         .await
@@ -171,14 +177,16 @@ pub async fn contract_handler(
     // collect all transaction hashes into a single Vec directly
     let mut tx_list = Vec::new();
     // get last (up to 5) internal transactions
-    let internal_txs = provider_state
+    let internal_txs = app_state
+        .provider_state
         .etherscan_provider
         .get_internal_txs(contract_address, start_block, last_block_number, 5)
         .await
         .map_err(|e| HandlerError::ProviderError(format!("Failed to get internal txs: {}", e)))?;
     tx_list.extend(internal_txs.result.iter().map(|tx| tx.hash));
     // get last (up to 5) normal transactions
-    let normal_txs = provider_state
+    let normal_txs = app_state
+        .provider_state
         .etherscan_provider
         .get_normal_txs(contract_address, start_block, last_block_number, 5)
         .await
@@ -189,7 +197,7 @@ pub async fn contract_handler(
     // deduplicate tx list
     let unique_tx_list: FxHashSet<_> = tx_list.into_iter().collect();
     for tx_hash in &unique_tx_list {
-        let tx_analysis = analyze_transaction(&provider_state, *tx_hash).await?;
+        let tx_analysis = analyze_transaction(&app_state.provider_state, *tx_hash).await?;
         if tx_analysis.gas_used == tx_analysis.eip_7623_calldata_gas + BASE_STIPEND {
             // tx is influenced by eip7623
             influenced += 1;
@@ -200,5 +208,91 @@ pub async fn contract_handler(
         tx_list: unique_tx_list,
         influenced_tx_list,
         influenced,
+    }))
+}
+
+/// Handler for daily transactions endpoint
+pub async fn daily_txs_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<DailyTxsQuery>,
+) -> Result<Json<DailyTxsResponse>, HandlerError> {
+    let tx_count = app_state
+        .db
+        .get_daily_transactions(
+            &query.batcher_address,
+            query.start_timestamp,
+            query.end_timestamp,
+        )
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get daily transactions: {}", e))
+        })?;
+
+    Ok(Json(DailyTxsResponse {
+        batcher_address: query.batcher_address,
+        tx_count,
+    }))
+}
+
+/// Handler for ETH saved endpoint
+pub async fn eth_saved_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<EthSavedQuery>,
+) -> Result<Json<EthSavedResponse>, HandlerError> {
+    let total_eth_saved_wei = app_state
+        .db
+        .get_eth_saved_data(
+            &query.batcher_address,
+            query.start_timestamp,
+            query.end_timestamp,
+        )
+        .await
+        .map_err(|e| HandlerError::DatabaseError(format!("Failed to get ETH saved data: {}", e)))?;
+
+    Ok(Json(EthSavedResponse {
+        batcher_address: query.batcher_address,
+        total_eth_saved_wei,
+    }))
+}
+
+/// Handler for blob data gas endpoint
+pub async fn blob_data_gas_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<GasUsageQuery>,
+) -> Result<Json<BlobDataGasResponse>, HandlerError> {
+    let total_blob_data_gas = app_state
+        .db
+        .get_total_blob_data_gas(
+            &query.batcher_address,
+            query.start_timestamp,
+            query.end_timestamp,
+        )
+        .await
+        .map_err(|e| HandlerError::DatabaseError(format!("Failed to get blob data gas: {}", e)))?;
+
+    Ok(Json(BlobDataGasResponse {
+        total_blob_data_gas,
+    }))
+}
+
+/// Handler for Pectra data gas endpoint
+pub async fn pectra_data_gas_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<GasUsageQuery>,
+) -> Result<Json<PectraDataGasResponse>, HandlerError> {
+    let total_pectra_data_gas = app_state
+        .db
+        .get_total_pectra_data_gas(
+            &query.batcher_address,
+            query.start_timestamp,
+            query.end_timestamp,
+        )
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get Pectra data gas: {}", e))
+        })?;
+
+    Ok(Json(PectraDataGasResponse {
+        total_pectra_data_gas,
     }))
 }
