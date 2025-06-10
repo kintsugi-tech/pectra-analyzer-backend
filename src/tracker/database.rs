@@ -3,8 +3,10 @@ use crate::server::types::{
 };
 use async_trait::async_trait;
 use eyre::Result;
-use sqlx::Row;
-use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use sqlx::{
+    Row,
+    sqlite::{SqlitePool, SqlitePoolOptions},
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
