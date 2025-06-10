@@ -197,3 +197,20 @@ pub struct AllPectraDataGasResponse {
     /// List of batcher Pectra data gas.
     pub batchers: Vec<BatcherPectraDataGas>,
 }
+
+/// Snapshot of daily aggregated metrics per batcher (previous 24-hour window).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DailyBatcherStats {
+    /// Batcher address (lower-cased hex).
+    pub batcher_address: String,
+    /// Start of the 24-h period being summarised (Unix timestamp, UTC, aligned at midnight).
+    pub snapshot_timestamp: i64,
+    /// Total ETH saved in wei during the period.
+    pub total_eth_saved_wei: u128,
+    /// Total transactions in the period.
+    pub total_daily_txs: u64,
+    /// Total blob-data gas used.
+    pub total_blob_data_gas: u64,
+    /// Total Pectra (EIP-7623) calldata gas used.
+    pub total_pectra_data_gas: u64,
+}

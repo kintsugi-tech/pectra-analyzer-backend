@@ -1,5 +1,6 @@
 use crate::server::types::{
     BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
+    DailyBatcherStats,
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -108,6 +109,9 @@ pub trait Database: Send + Sync {
         start_timestamp: i64,
         end_timestamp: i64,
     ) -> Result<Vec<BatcherPectraDataGas>>;
+
+    // Save aggregated daily snapshot stats for each batcher
+    async fn insert_daily_batcher_stats(&self, stats: &[DailyBatcherStats]) -> Result<()>;
 }
 
 pub struct SqliteDatabase {
@@ -149,6 +153,22 @@ impl SqliteDatabase {
                 next_retry_at INTEGER NOT NULL,
                 first_failed_at INTEGER NOT NULL,
                 last_attempted_at INTEGER NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        // create daily snapshot table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS daily_batcher_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batcher_address TEXT NOT NULL,
+                snapshot_timestamp INTEGER NOT NULL,
+                total_eth_saved_wei TEXT NOT NULL,
+                total_daily_txs INTEGER NOT NULL,
+                total_blob_data_gas INTEGER NOT NULL,
+                total_pectra_data_gas INTEGER NOT NULL,
+                UNIQUE(batcher_address, snapshot_timestamp)
             )",
         )
         .execute(&pool)
@@ -555,6 +575,34 @@ impl Database for SqliteDatabase {
                 },
             )
             .collect())
+    }
+
+    async fn insert_daily_batcher_stats(&self, stats: &[DailyBatcherStats]) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        for s in stats {
+            sqlx::query(
+                "INSERT OR IGNORE INTO daily_batcher_stats (
+                    batcher_address,
+                    snapshot_timestamp,
+                    total_eth_saved_wei,
+                    total_daily_txs,
+                    total_blob_data_gas,
+                    total_pectra_data_gas
+                ) VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            .bind(s.batcher_address.to_lowercase())
+            .bind(s.snapshot_timestamp)
+            .bind(s.total_eth_saved_wei.to_string())
+            .bind(s.total_daily_txs as i64)
+            .bind(s.total_blob_data_gas as i64)
+            .bind(s.total_pectra_data_gas as i64)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
     }
 }
 

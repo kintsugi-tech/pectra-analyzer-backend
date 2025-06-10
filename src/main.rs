@@ -35,7 +35,7 @@ async fn run_l2_batches_monitoring_service(app_state: AppState) -> eyre::Result<
 
     // run both monitoring and retry services concurrently
     tokio::select! {
-        res = tracker::l2_monitor::start_monitoring(app_state.db, app_state.provider_state) => {
+        res = tracker::l2_monitor::start_monitoring(app_state.db.clone(), app_state.provider_state.clone()) => {
             if let Err(e) = res {
                 error!("L2 monitor error: {:?}", e);
             }
@@ -43,6 +43,11 @@ async fn run_l2_batches_monitoring_service(app_state: AppState) -> eyre::Result<
         res = retry_handler.start_retry_loop() => {
             if let Err(e) = res {
                 error!("Retry handler error: {:?}", e);
+            }
+        },
+        res = tracker::snapshot::start_snapshot_loop(app_state.db.clone()) => {
+            if let Err(e) = res {
+                error!("Snapshot loop error: {:?}", e);
             }
         },
     }
