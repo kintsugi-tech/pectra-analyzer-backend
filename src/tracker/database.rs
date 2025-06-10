@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use eyre::Result;
 use sqlx::Row;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TrackedBatch {
@@ -452,8 +453,7 @@ impl Database for SqliteDatabase {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut batcher_eth_saved: std::collections::HashMap<String, u128> =
-            std::collections::HashMap::new();
+        let mut batcher_eth_saved: HashMap<String, u128> = HashMap::new();
 
         for row in rows {
             let batcher_address: String = row.get("batcher_address");
@@ -498,8 +498,7 @@ impl Database for SqliteDatabase {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut batcher_blob_gas: std::collections::HashMap<String, u64> =
-            std::collections::HashMap::new();
+        let mut batcher_blob_gas: HashMap<String, u64> = HashMap::new();
 
         for row in rows {
             let batcher_address: String = row.get("batcher_address");
@@ -536,8 +535,7 @@ impl Database for SqliteDatabase {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut batcher_pectra_gas: std::collections::HashMap<String, u64> =
-            std::collections::HashMap::new();
+        let mut batcher_pectra_gas: HashMap<String, u64> = HashMap::new();
 
         for row in rows {
             let batcher_address: String = row.get("batcher_address");
