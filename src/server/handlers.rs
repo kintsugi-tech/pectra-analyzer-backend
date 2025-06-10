@@ -9,6 +9,7 @@ use super::{
 };
 use crate::{
     provider::ProviderState,
+    server::types::{AllBatchersSevenDayStatsResponse, BatcherSevenDayStats},
     utils::{BASE_STIPEND, BYTES_PER_BLOB, compute_calldata_gas, compute_legacy_calldata_gas},
 };
 use alloy_consensus::{Transaction, Typed2718};
@@ -16,6 +17,7 @@ use alloy_primitives::{Address, FixedBytes, hex::FromHex};
 use alloy_provider::Provider;
 use axum::{Json, extract::Query, extract::State};
 use rustc_hash::FxHashSet;
+use std::collections::HashMap;
 
 pub async fn root_handler() -> &'static str {
     concat!(
@@ -362,4 +364,38 @@ pub async fn all_pectra_data_gas_handler(
         })?;
 
     Ok(Json(AllPectraDataGasResponse { batchers }))
+}
+
+pub async fn seven_day_stats_handler(
+    State(app_state): State<super::AppState>,
+) -> Result<Json<AllBatchersSevenDayStatsResponse>, HandlerError> {
+    let rows = app_state.db.get_recent_daily_stats(7).await.map_err(|e| {
+        HandlerError::DatabaseError(format!("Failed to get recent daily stats: {}", e))
+    })?;
+
+    let mut map: HashMap<String, BatcherSevenDayStats> = HashMap::new();
+
+    for r in rows {
+        let entry = map
+            .entry(r.batcher_address.clone())
+            .or_insert_with(|| BatcherSevenDayStats {
+                batcher_address: r.batcher_address.clone(),
+                timestamps: Vec::new(),
+                total_daily_txs: Vec::new(),
+                total_eth_saved_wei: Vec::new(),
+                total_blob_data_gas: Vec::new(),
+                total_pectra_data_gas: Vec::new(),
+            });
+        entry.timestamps.push(r.snapshot_timestamp);
+        entry.total_daily_txs.push(r.total_daily_txs);
+        entry.total_eth_saved_wei.push(r.total_eth_saved_wei);
+        entry.total_blob_data_gas.push(r.total_blob_data_gas);
+        entry.total_pectra_data_gas.push(r.total_pectra_data_gas);
+    }
+
+    let mut batchers: Vec<BatcherSevenDayStats> = map.into_values().collect();
+    // ensure ascending order by timestamp inside vectors (they are already since query sorted asc)
+    batchers.sort_by(|a, b| a.batcher_address.cmp(&b.batcher_address));
+
+    Ok(Json(AllBatchersSevenDayStatsResponse { batchers }))
 }

@@ -6,8 +6,10 @@ use chrono::Utc;
 use eyre::Result;
 use tracing::{error, info};
 
+use crate::server::types::{
+    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas, DailyBatcherStats,
+};
 use crate::tracker::database::Database;
-use crate::server::types::{BatcherDailyTxs, BatcherEthSaved, BatcherBlobDataGas, BatcherPectraDataGas, DailyBatcherStats};
 
 /// Start an infinite loop that creates and persists a daily snapshot of batcher metrics every 24 hours.
 ///
@@ -40,8 +42,10 @@ async fn create_and_save_snapshot(db: Arc<dyn Database>) -> Result<()> {
     // aggregate metrics for all batchers
     let daily_txs: Vec<BatcherDailyTxs> = db.get_all_daily_transactions(start_ts, end_ts).await?;
     let eth_saved: Vec<BatcherEthSaved> = db.get_all_eth_saved_data(start_ts, end_ts).await?;
-    let blob_gas: Vec<BatcherBlobDataGas> = db.get_all_total_blob_data_gas(start_ts, end_ts).await?;
-    let pectra_gas: Vec<BatcherPectraDataGas> = db.get_all_total_pectra_data_gas(start_ts, end_ts).await?;
+    let blob_gas: Vec<BatcherBlobDataGas> =
+        db.get_all_total_blob_data_gas(start_ts, end_ts).await?;
+    let pectra_gas: Vec<BatcherPectraDataGas> =
+        db.get_all_total_pectra_data_gas(start_ts, end_ts).await?;
 
     #[derive(Default)]
     struct TmpStats {
@@ -54,9 +58,7 @@ async fn create_and_save_snapshot(db: Arc<dyn Database>) -> Result<()> {
     let mut map: HashMap<String, TmpStats> = HashMap::new();
 
     for item in daily_txs {
-        map.entry(item.batcher_address)
-            .or_default()
-            .total_daily_txs = item.tx_count;
+        map.entry(item.batcher_address).or_default().total_daily_txs = item.tx_count;
     }
     for item in eth_saved {
         map.entry(item.batcher_address)
@@ -92,4 +94,4 @@ async fn create_and_save_snapshot(db: Arc<dyn Database>) -> Result<()> {
     info!(count = stats_vec.len(), "Daily batcher snapshot saved");
 
     Ok(())
-} 
+}

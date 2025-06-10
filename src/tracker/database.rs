@@ -1,6 +1,5 @@
 use crate::server::types::{
-    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
-    DailyBatcherStats,
+    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas, DailyBatcherStats,
 };
 use async_trait::async_trait;
 use eyre::Result;
@@ -112,6 +111,12 @@ pub trait Database: Send + Sync {
 
     // Save aggregated daily snapshot stats for each batcher
     async fn insert_daily_batcher_stats(&self, stats: &[DailyBatcherStats]) -> Result<()>;
+
+    // Fetch last `limit_per_batcher` daily snapshot rows per batcher
+    async fn get_recent_daily_stats(
+        &self,
+        limit_per_batcher: i64,
+    ) -> Result<Vec<crate::server::types::DailyBatcherStats>>;
 }
 
 pub struct SqliteDatabase {
@@ -589,7 +594,7 @@ impl Database for SqliteDatabase {
                     total_daily_txs,
                     total_blob_data_gas,
                     total_pectra_data_gas
-                ) VALUES (?, ?, ?, ?, ?, ?)"
+                ) VALUES (?, ?, ?, ?, ?, ?)",
             )
             .bind(s.batcher_address.to_lowercase())
             .bind(s.snapshot_timestamp)
@@ -603,6 +608,43 @@ impl Database for SqliteDatabase {
 
         tx.commit().await?;
         Ok(())
+    }
+
+    async fn get_recent_daily_stats(
+        &self,
+        limit_per_batcher: i64,
+    ) -> Result<Vec<DailyBatcherStats>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, snapshot_timestamp, total_eth_saved_wei, total_daily_txs, total_blob_data_gas, total_pectra_data_gas FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY batcher_address ORDER BY snapshot_timestamp DESC) as rn
+                FROM daily_batcher_stats
+            ) WHERE rn <= ?
+            ORDER BY batcher_address, snapshot_timestamp ASC"
+        )
+        .bind(limit_per_batcher)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut stats = Vec::with_capacity(rows.len());
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let snapshot_timestamp: i64 = row.get("snapshot_timestamp");
+            let total_eth_saved_wei_str: String = row.get("total_eth_saved_wei");
+            let total_eth_saved_wei: u128 = total_eth_saved_wei_str.parse().unwrap_or(0);
+            let total_daily_txs: i64 = row.get("total_daily_txs");
+            let total_blob_data_gas: i64 = row.get("total_blob_data_gas");
+            let total_pectra_data_gas: i64 = row.get("total_pectra_data_gas");
+
+            stats.push(DailyBatcherStats {
+                batcher_address,
+                snapshot_timestamp,
+                total_eth_saved_wei,
+                total_daily_txs: total_daily_txs as u64,
+                total_blob_data_gas: total_blob_data_gas as u64,
+                total_pectra_data_gas: total_pectra_data_gas as u64,
+            });
+        }
+        Ok(stats)
     }
 }
 

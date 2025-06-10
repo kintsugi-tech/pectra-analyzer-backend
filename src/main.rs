@@ -8,7 +8,7 @@ use pectralizer::{
             all_blob_data_gas_handler, all_daily_txs_handler, all_eth_saved_handler,
             all_pectra_data_gas_handler, blob_data_gas_handler, contract_handler,
             daily_txs_handler, eth_saved_handler, pectra_data_gas_handler, root_handler,
-            tx_handler,
+            seven_day_stats_handler, tx_handler,
         },
     },
     tracker::{
@@ -121,6 +121,7 @@ async fn main() -> eyre::Result<()> {
         .route("/all_eth_saved", get(all_eth_saved_handler))
         .route("/all_blob_data_gas", get(all_blob_data_gas_handler))
         .route("/all_pectra_data_gas", get(all_pectra_data_gas_handler))
+        .route("/seven_day_stats", get(seven_day_stats_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state.clone());
 

@@ -214,3 +214,27 @@ pub struct DailyBatcherStats {
     /// Total Pectra (EIP-7623) calldata gas used.
     pub total_pectra_data_gas: u64,
 }
+
+/// Recent daily statistics (series) for a batcher.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BatcherSevenDayStats {
+    /// Batcher address (lower-cased hex).
+    pub batcher_address: String,
+    /// Timestamps of the snapshots (Unix timestamp, UTC, aligned at midnight).
+    pub timestamps: Vec<i64>,
+    /// Total transactions in the period.
+    pub total_daily_txs: Vec<u64>,
+    /// Total ETH saved in wei during the period.
+    pub total_eth_saved_wei: Vec<u128>,
+    /// Total blob-data gas used.
+    pub total_blob_data_gas: Vec<u64>,
+    /// Total Pectra (EIP-7623) calldata gas used.
+    pub total_pectra_data_gas: Vec<u64>,
+}
+
+/// Response for the 7-day stats endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct AllBatchersSevenDayStatsResponse {
+    /// List of batcher seven-day stats.
+    pub batchers: Vec<BatcherSevenDayStats>,
+}
