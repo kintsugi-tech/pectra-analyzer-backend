@@ -1,9 +1,10 @@
 use super::{
     error::HandlerError,
     types::{
-        BlobDataGasResponse, ContractAnalysisResponse, ContractQuery, DailyTxsQuery,
-        DailyTxsResponse, EthSavedQuery, EthSavedResponse, GasUsageQuery, PectraDataGasResponse,
-        TxAnalysisResponse, TxHashQuery,
+        AggregatedQuery, AllBlobDataGasResponse, AllDailyTxsResponse, AllEthSavedResponse,
+        AllPectraDataGasResponse, BlobDataGasResponse, ContractAnalysisResponse, ContractQuery,
+        DailyTxsQuery, DailyTxsResponse, EthSavedQuery, EthSavedResponse, GasUsageQuery,
+        PectraDataGasResponse, TxAnalysisResponse, TxHashQuery,
     },
 };
 use crate::{
@@ -297,4 +298,68 @@ pub async fn pectra_data_gas_handler(
         batcher_address: query.batcher_address,
         total_pectra_data_gas,
     }))
+}
+
+/// Handler for aggregated daily transactions endpoint (all batchers)
+pub async fn all_daily_txs_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<AggregatedQuery>,
+) -> Result<Json<AllDailyTxsResponse>, HandlerError> {
+    let batchers = app_state
+        .db
+        .get_all_daily_transactions(query.start_timestamp, query.end_timestamp)
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get all daily transactions: {}", e))
+        })?;
+
+    Ok(Json(AllDailyTxsResponse { batchers }))
+}
+
+/// Handler for aggregated ETH saved endpoint (all batchers)
+pub async fn all_eth_saved_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<AggregatedQuery>,
+) -> Result<Json<AllEthSavedResponse>, HandlerError> {
+    let batchers = app_state
+        .db
+        .get_all_eth_saved_data(query.start_timestamp, query.end_timestamp)
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get all ETH saved data: {}", e))
+        })?;
+
+    Ok(Json(AllEthSavedResponse { batchers }))
+}
+
+/// Handler for aggregated blob data gas endpoint (all batchers)
+pub async fn all_blob_data_gas_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<AggregatedQuery>,
+) -> Result<Json<AllBlobDataGasResponse>, HandlerError> {
+    let batchers = app_state
+        .db
+        .get_all_total_blob_data_gas(query.start_timestamp, query.end_timestamp)
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get all blob data gas: {}", e))
+        })?;
+
+    Ok(Json(AllBlobDataGasResponse { batchers }))
+}
+
+/// Handler for aggregated Pectra data gas endpoint (all batchers)
+pub async fn all_pectra_data_gas_handler(
+    State(app_state): State<super::AppState>,
+    Query(query): Query<AggregatedQuery>,
+) -> Result<Json<AllPectraDataGasResponse>, HandlerError> {
+    let batchers = app_state
+        .db
+        .get_all_total_pectra_data_gas(query.start_timestamp, query.end_timestamp)
+        .await
+        .map_err(|e| {
+            HandlerError::DatabaseError(format!("Failed to get all Pectra data gas: {}", e))
+        })?;
+
+    Ok(Json(AllPectraDataGasResponse { batchers }))
 }

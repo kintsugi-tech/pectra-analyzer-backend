@@ -124,3 +124,76 @@ pub struct PectraDataGasResponse {
     /// Total Pectra (EIP-7623) calldata gas used.
     pub total_pectra_data_gas: u64,
 }
+
+/// Query parameters for aggregated endpoints (all batchers).
+#[derive(Deserialize, Debug)]
+pub struct AggregatedQuery {
+    /// Timestamp start (Unix timestamp).
+    pub start_timestamp: i64,
+    /// Timestamp end (Unix timestamp).
+    pub end_timestamp: i64,
+}
+
+/// Individual batcher data for daily transactions.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BatcherDailyTxs {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// The number of transactions.
+    pub tx_count: u64,
+}
+
+/// Response structure for aggregated daily transactions endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct AllDailyTxsResponse {
+    /// List of batcher transaction data.
+    pub batchers: Vec<BatcherDailyTxs>,
+}
+
+/// Individual batcher data for ETH saved.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BatcherEthSaved {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total ETH saved in wei.
+    pub total_eth_saved_wei: u128,
+}
+
+/// Response structure for aggregated ETH saved endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct AllEthSavedResponse {
+    /// List of batcher ETH saved data.
+    pub batchers: Vec<BatcherEthSaved>,
+}
+
+/// Individual batcher data for blob data gas.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BatcherBlobDataGas {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total blob data gas used.
+    pub total_blob_data_gas: u64,
+}
+
+/// Response structure for aggregated blob data gas endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct AllBlobDataGasResponse {
+    /// List of batcher blob data gas.
+    pub batchers: Vec<BatcherBlobDataGas>,
+}
+
+/// Individual batcher data for Pectra data gas.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct BatcherPectraDataGas {
+    /// The batcher address.
+    pub batcher_address: String,
+    /// Total Pectra (EIP-7623) calldata gas used.
+    pub total_pectra_data_gas: u64,
+}
+
+/// Response structure for aggregated Pectra data gas endpoint.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct AllPectraDataGasResponse {
+    /// List of batcher Pectra data gas.
+    pub batchers: Vec<BatcherPectraDataGas>,
+}
