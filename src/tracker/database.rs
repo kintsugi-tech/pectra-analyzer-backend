@@ -1,10 +1,12 @@
 use crate::server::types::{
-    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
+    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas, DailyBatcherStats,
 };
 use async_trait::async_trait;
 use eyre::Result;
-use sqlx::Row;
-use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use sqlx::{
+    Row,
+    sqlite::{SqlitePool, SqlitePoolOptions},
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -108,6 +110,15 @@ pub trait Database: Send + Sync {
         start_timestamp: i64,
         end_timestamp: i64,
     ) -> Result<Vec<BatcherPectraDataGas>>;
+
+    // Save aggregated daily snapshot stats for each batcher
+    async fn insert_daily_batcher_stats(&self, stats: &[DailyBatcherStats]) -> Result<()>;
+
+    // Fetch last `limit_per_batcher` daily snapshot rows per batcher
+    async fn get_recent_daily_stats(
+        &self,
+        limit_per_batcher: i64,
+    ) -> Result<Vec<DailyBatcherStats>>;
 }
 
 pub struct SqliteDatabase {
@@ -149,6 +160,22 @@ impl SqliteDatabase {
                 next_retry_at INTEGER NOT NULL,
                 first_failed_at INTEGER NOT NULL,
                 last_attempted_at INTEGER NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
+        // create daily snapshot table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS daily_batcher_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batcher_address TEXT NOT NULL,
+                snapshot_timestamp INTEGER NOT NULL,
+                total_eth_saved_wei TEXT NOT NULL,
+                total_daily_txs INTEGER NOT NULL,
+                total_blob_data_gas INTEGER NOT NULL,
+                total_pectra_data_gas INTEGER NOT NULL,
+                UNIQUE(batcher_address, snapshot_timestamp)
             )",
         )
         .execute(&pool)
@@ -555,6 +582,71 @@ impl Database for SqliteDatabase {
                 },
             )
             .collect())
+    }
+
+    async fn insert_daily_batcher_stats(&self, stats: &[DailyBatcherStats]) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        for s in stats {
+            sqlx::query(
+                "INSERT OR IGNORE INTO daily_batcher_stats (
+                    batcher_address,
+                    snapshot_timestamp,
+                    total_eth_saved_wei,
+                    total_daily_txs,
+                    total_blob_data_gas,
+                    total_pectra_data_gas
+                ) VALUES (?, ?, ?, ?, ?, ?)",
+            )
+            .bind(s.batcher_address.to_lowercase())
+            .bind(s.snapshot_timestamp)
+            .bind(s.total_eth_saved_wei.to_string())
+            .bind(s.total_daily_txs as i64)
+            .bind(s.total_blob_data_gas as i64)
+            .bind(s.total_pectra_data_gas as i64)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn get_recent_daily_stats(
+        &self,
+        limit_per_batcher: i64,
+    ) -> Result<Vec<DailyBatcherStats>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, snapshot_timestamp, total_eth_saved_wei, total_daily_txs, total_blob_data_gas, total_pectra_data_gas FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY batcher_address ORDER BY snapshot_timestamp DESC) as rn
+                FROM daily_batcher_stats
+            ) WHERE rn <= ?
+            ORDER BY batcher_address, snapshot_timestamp ASC"
+        )
+        .bind(limit_per_batcher)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut stats = Vec::with_capacity(rows.len());
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let snapshot_timestamp: i64 = row.get("snapshot_timestamp");
+            let total_eth_saved_wei_str: String = row.get("total_eth_saved_wei");
+            let total_eth_saved_wei: u128 = total_eth_saved_wei_str.parse().unwrap_or(0);
+            let total_daily_txs: i64 = row.get("total_daily_txs");
+            let total_blob_data_gas: i64 = row.get("total_blob_data_gas");
+            let total_pectra_data_gas: i64 = row.get("total_pectra_data_gas");
+
+            stats.push(DailyBatcherStats {
+                batcher_address,
+                snapshot_timestamp,
+                total_eth_saved_wei,
+                total_daily_txs: total_daily_txs as u64,
+                total_blob_data_gas: total_blob_data_gas as u64,
+                total_pectra_data_gas: total_pectra_data_gas as u64,
+            });
+        }
+        Ok(stats)
     }
 }
 

@@ -220,6 +220,32 @@ GET /all_pectra_data_gas?start_timestamp=1640995200&end_timestamp=1641081600
 }
 ```
 
+### 5. Seven-Day Stats (Daily Snapshots)
+
+**Endpoint:** `GET /seven_day_stats`
+
+**Parameters:** none
+
+**Description:**
+Returns, for each monitored batcher, the most recent 7 daily snapshot rows produced by the background snapshot loop. Each field is returned as an array whose order corresponds to the `timestamps` array.
+
+**Response:**
+```json
+{
+  "batchers": [
+    {
+      "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
+      "timestamps":            [1759430400, 1759516800, 1759603200, 1759689600, 1759776000, 1759862400, 1759948800],
+      "total_daily_txs":       [221, 270, 390, 130, 532, 421, 1009],
+      "total_eth_saved_wei":   ["123", "456", "789", "..."],
+      "total_blob_data_gas":   [100, 200, 300, 400, 500, 600, 700],
+      "total_pectra_data_gas": [150, 250, 350, 450, 550, 650, 750]
+    },
+    { "batcher_address": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985", "timestamps": [...], ... }
+  ]
+}
+```
+
 ## Technical Notes
 
 - All timestamps are in Unix timestamp format (seconds since January 1, 1970)

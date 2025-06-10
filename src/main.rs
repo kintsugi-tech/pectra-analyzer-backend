@@ -8,7 +8,7 @@ use pectralizer::{
             all_blob_data_gas_handler, all_daily_txs_handler, all_eth_saved_handler,
             all_pectra_data_gas_handler, blob_data_gas_handler, contract_handler,
             daily_txs_handler, eth_saved_handler, pectra_data_gas_handler, root_handler,
-            tx_handler,
+            seven_day_stats_handler, tx_handler,
         },
     },
     tracker::{
@@ -35,7 +35,7 @@ async fn run_l2_batches_monitoring_service(app_state: AppState) -> eyre::Result<
 
     // run both monitoring and retry services concurrently
     tokio::select! {
-        res = tracker::l2_monitor::start_monitoring(app_state.db, app_state.provider_state) => {
+        res = tracker::l2_monitor::start_monitoring(app_state.db.clone(), app_state.provider_state.clone()) => {
             if let Err(e) = res {
                 error!("L2 monitor error: {:?}", e);
             }
@@ -43,6 +43,11 @@ async fn run_l2_batches_monitoring_service(app_state: AppState) -> eyre::Result<
         res = retry_handler.start_retry_loop() => {
             if let Err(e) = res {
                 error!("Retry handler error: {:?}", e);
+            }
+        },
+        res = tracker::snapshot::start_snapshot_loop(app_state.db.clone()) => {
+            if let Err(e) = res {
+                error!("Snapshot loop error: {:?}", e);
             }
         },
     }
@@ -116,6 +121,7 @@ async fn main() -> eyre::Result<()> {
         .route("/all_eth_saved", get(all_eth_saved_handler))
         .route("/all_blob_data_gas", get(all_blob_data_gas_handler))
         .route("/all_pectra_data_gas", get(all_pectra_data_gas_handler))
+        .route("/seven_day_stats", get(seven_day_stats_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state.clone());
 
@@ -139,6 +145,7 @@ async fn main() -> eyre::Result<()> {
     info!("   - GET  /all_eth_saved - ETH saved data for all batchers");
     info!("   - GET  /all_blob_data_gas - Blob data gas for all batchers");
     info!("   - GET  /all_pectra_data_gas - Pectra data gas for all batchers");
+    info!("   - GET  /seven_day_stats - Last 7-day snapshot series for all batchers");
 
     // run both services concurrently
     tokio::select! {
