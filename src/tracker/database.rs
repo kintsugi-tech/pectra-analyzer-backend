@@ -1,11 +1,10 @@
+use crate::server::types::{
+    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
+};
 use async_trait::async_trait;
 use eyre::Result;
 use sqlx::Row;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-
-use crate::server::types::{
-    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
-};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TrackedBatch {
@@ -413,7 +412,7 @@ impl Database for SqliteDatabase {
         &self,
         start_timestamp: i64,
         end_timestamp: i64,
-    ) -> Result<Vec<crate::server::types::BatcherDailyTxs>> {
+    ) -> Result<Vec<BatcherDailyTxs>> {
         let rows = sqlx::query(
             "SELECT batcher_address, COUNT(*) FROM l2_batches_txs 
              WHERE timestamp >= ? AND timestamp <= ? 
@@ -429,7 +428,7 @@ impl Database for SqliteDatabase {
         for row in rows {
             let batcher_address: String = row.get("batcher_address");
             let tx_count: i64 = row.get("COUNT(*)");
-            all_daily_transactions.push(crate::server::types::BatcherDailyTxs {
+            all_daily_transactions.push(BatcherDailyTxs {
                 batcher_address,
                 tx_count: tx_count as u64,
             });
@@ -442,7 +441,7 @@ impl Database for SqliteDatabase {
         &self,
         start_timestamp: i64,
         end_timestamp: i64,
-    ) -> Result<Vec<crate::server::types::BatcherEthSaved>> {
+    ) -> Result<Vec<BatcherEthSaved>> {
         let rows = sqlx::query(
             "SELECT batcher_address, analysis_result FROM l2_batches_txs 
              WHERE timestamp >= ? AND timestamp <= ? 
@@ -477,12 +476,10 @@ impl Database for SqliteDatabase {
 
         Ok(batcher_eth_saved
             .into_iter()
-            .map(
-                |(batcher_address, total_eth_saved_wei)| crate::server::types::BatcherEthSaved {
-                    batcher_address,
-                    total_eth_saved_wei,
-                },
-            )
+            .map(|(batcher_address, total_eth_saved_wei)| BatcherEthSaved {
+                batcher_address,
+                total_eth_saved_wei,
+            })
             .collect())
     }
 
@@ -490,7 +487,7 @@ impl Database for SqliteDatabase {
         &self,
         start_timestamp: i64,
         end_timestamp: i64,
-    ) -> Result<Vec<crate::server::types::BatcherBlobDataGas>> {
+    ) -> Result<Vec<BatcherBlobDataGas>> {
         let rows = sqlx::query(
             "SELECT batcher_address, analysis_result FROM l2_batches_txs 
              WHERE timestamp >= ? AND timestamp <= ? 
@@ -515,12 +512,12 @@ impl Database for SqliteDatabase {
 
         Ok(batcher_blob_gas
             .into_iter()
-            .map(|(batcher_address, total_blob_data_gas)| {
-                crate::server::types::BatcherBlobDataGas {
+            .map(
+                |(batcher_address, total_blob_data_gas)| BatcherBlobDataGas {
                     batcher_address,
                     total_blob_data_gas,
-                }
-            })
+                },
+            )
             .collect())
     }
 
@@ -528,7 +525,7 @@ impl Database for SqliteDatabase {
         &self,
         start_timestamp: i64,
         end_timestamp: i64,
-    ) -> Result<Vec<crate::server::types::BatcherPectraDataGas>> {
+    ) -> Result<Vec<BatcherPectraDataGas>> {
         let rows = sqlx::query(
             "SELECT batcher_address, analysis_result FROM l2_batches_txs 
              WHERE timestamp >= ? AND timestamp <= ? 
@@ -553,12 +550,12 @@ impl Database for SqliteDatabase {
 
         Ok(batcher_pectra_gas
             .into_iter()
-            .map(|(batcher_address, total_pectra_data_gas)| {
-                crate::server::types::BatcherPectraDataGas {
+            .map(
+                |(batcher_address, total_pectra_data_gas)| BatcherPectraDataGas {
                     batcher_address,
                     total_pectra_data_gas,
-                }
-            })
+                },
+            )
             .collect())
     }
 }
