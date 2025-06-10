@@ -100,6 +100,126 @@ GET /pectra_data_gas?batcher_address=0x5050F69a9786F081509234F1a7F4684b5E5b76C9&
 }
 ```
 
+## Aggregated L2 Analytics Endpoints (All Batchers)
+
+The following endpoints return data for all batchers at once, eliminating the need to make separate API calls for each batcher address.
+
+### 1. All Daily Transactions
+
+**Endpoint:** `GET /all_daily_txs`
+
+**Parameters:**
+- `start_timestamp` (i64) - Start timestamp (Unix timestamp)
+- `end_timestamp` (i64) - End timestamp (Unix timestamp)
+
+**Example:**
+```
+GET /all_daily_txs?start_timestamp=1640995200&end_timestamp=1641081600
+```
+
+**Response:**
+```json
+{
+  "batchers": [
+    {
+      "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
+      "tx_count": 42
+    },
+    {
+      "batcher_address": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+      "tx_count": 38
+    }
+  ]
+}
+```
+
+### 2. All ETH Saved
+
+**Endpoint:** `GET /all_eth_saved`
+
+**Parameters:**
+- `start_timestamp` (i64) - Start timestamp (Unix timestamp)
+- `end_timestamp` (i64) - End timestamp (Unix timestamp)
+
+**Example:**
+```
+GET /all_eth_saved?start_timestamp=1640995200&end_timestamp=1641081600
+```
+
+**Response:**
+```json
+{
+  "batchers": [
+    {
+      "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
+      "total_eth_saved_wei": "1234567890123456789"
+    },
+    {
+      "batcher_address": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+      "total_eth_saved_wei": "987654321098765432"
+    }
+  ]
+}
+```
+
+### 3. All Blob Data Gas
+
+**Endpoint:** `GET /all_blob_data_gas`
+
+**Parameters:**
+- `start_timestamp` (i64) - Start timestamp (Unix timestamp)
+- `end_timestamp` (i64) - End timestamp (Unix timestamp)
+
+**Example:**
+```
+GET /all_blob_data_gas?start_timestamp=1640995200&end_timestamp=1641081600
+```
+
+**Response:**
+```json
+{
+  "batchers": [
+    {
+      "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
+      "total_blob_data_gas": 1234567890
+    },
+    {
+      "batcher_address": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+      "total_blob_data_gas": 876543210
+    }
+  ]
+}
+```
+
+### 4. All Pectra Data Gas (EIP-7623)
+
+**Endpoint:** `GET /all_pectra_data_gas`
+
+**Parameters:**
+- `start_timestamp` (i64) - Start timestamp (Unix timestamp)
+- `end_timestamp` (i64) - End timestamp (Unix timestamp)
+
+**Example:**
+```
+GET /all_pectra_data_gas?start_timestamp=1640995200&end_timestamp=1641081600
+```
+
+**Response:**
+```json
+{
+  "batchers": [
+    {
+      "batcher_address": "0x5050F69a9786F081509234F1a7F4684b5E5b76C9",
+      "total_pectra_data_gas": 9876543210
+    },
+    {
+      "batcher_address": "0x6887246668a3b87F54DeB3b94Ba47a6f63F32985",
+      "total_pectra_data_gas": 5432109876
+    }
+  ]
+}
+```
+
 ## Technical Notes
 
 - All timestamps are in Unix timestamp format (seconds since January 1, 1970)
@@ -107,7 +227,9 @@ GET /pectra_data_gas?batcher_address=0x5050F69a9786F081509234F1a7F4684b5E5b76C9&
 - ETH values are in wei (1 ETH = 10^18 wei)
 - The endpoints query the SQLite database created by the L2 monitoring service
 - The database is automatically populated by the `run_l2_batches_monitoring_service`
-- All analytics endpoints now require a `batcher_address` parameter to filter results for a specific batcher
+- **Individual endpoints** require a `batcher_address` parameter to filter results for a specific batcher
+- **Aggregated endpoints** (`/all_*`) return data for all batchers and only require timestamp parameters
+- Aggregated endpoints are more efficient when you need data for multiple batchers at once
 
 ## Monitored Batcher Addresses
 

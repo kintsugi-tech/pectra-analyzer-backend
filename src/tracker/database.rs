@@ -3,6 +3,10 @@ use eyre::Result;
 use sqlx::Row;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
+use crate::server::types::{
+    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
+};
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TrackedBatch {
     // sqlx::FromRow requires fields to match column names or use #[sqlx(rename = "...")]
@@ -79,6 +83,31 @@ pub trait Database: Send + Sync {
         start_timestamp: i64,
         end_timestamp: i64,
     ) -> Result<u64>;
+
+    // methods for aggregated L2 batch analytics across all batchers
+    async fn get_all_daily_transactions(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<BatcherDailyTxs>>;
+
+    async fn get_all_eth_saved_data(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<BatcherEthSaved>>;
+
+    async fn get_all_total_blob_data_gas(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<BatcherBlobDataGas>>;
+
+    async fn get_all_total_pectra_data_gas(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<BatcherPectraDataGas>>;
 }
 
 pub struct SqliteDatabase {
@@ -378,6 +407,159 @@ impl Database for SqliteDatabase {
         }
 
         Ok(total_pectra_gas)
+    }
+
+    async fn get_all_daily_transactions(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<crate::server::types::BatcherDailyTxs>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, COUNT(*) FROM l2_batches_txs 
+             WHERE timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'
+             GROUP BY batcher_address",
+        )
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut all_daily_transactions = Vec::new();
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let tx_count: i64 = row.get("COUNT(*)");
+            all_daily_transactions.push(crate::server::types::BatcherDailyTxs {
+                batcher_address,
+                tx_count: tx_count as u64,
+            });
+        }
+
+        Ok(all_daily_transactions)
+    }
+
+    async fn get_all_eth_saved_data(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<crate::server::types::BatcherEthSaved>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, analysis_result FROM l2_batches_txs 
+             WHERE timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut batcher_eth_saved: std::collections::HashMap<String, u128> =
+            std::collections::HashMap::new();
+
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let analysis_result: String = row.get("analysis_result");
+
+            // Parse the JSON analysis result to extract ETH saved data
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let blob_data_wei_spent =
+                    analysis["blob_data_wei_spent"].as_u64().unwrap_or(0) as u128;
+                let eip_7623_calldata_wei_spent = analysis["eip_7623_calldata_wei_spent"]
+                    .as_u64()
+                    .unwrap_or(0) as u128;
+
+                // Calculate ETH saved: difference between what would be spent on EIP-7623 and what was actually spent on blob data
+                let eth_saved_wei = eip_7623_calldata_wei_spent.saturating_sub(blob_data_wei_spent);
+
+                *batcher_eth_saved.entry(batcher_address).or_insert(0) += eth_saved_wei;
+            }
+        }
+
+        Ok(batcher_eth_saved
+            .into_iter()
+            .map(
+                |(batcher_address, total_eth_saved_wei)| crate::server::types::BatcherEthSaved {
+                    batcher_address,
+                    total_eth_saved_wei,
+                },
+            )
+            .collect())
+    }
+
+    async fn get_all_total_blob_data_gas(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<crate::server::types::BatcherBlobDataGas>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, analysis_result FROM l2_batches_txs 
+             WHERE timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut batcher_blob_gas: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let analysis_result: String = row.get("analysis_result");
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let blob_gas_used = analysis["blob_gas_used"].as_u64().unwrap_or(0);
+                *batcher_blob_gas.entry(batcher_address).or_insert(0) += blob_gas_used;
+            }
+        }
+
+        Ok(batcher_blob_gas
+            .into_iter()
+            .map(|(batcher_address, total_blob_data_gas)| {
+                crate::server::types::BatcherBlobDataGas {
+                    batcher_address,
+                    total_blob_data_gas,
+                }
+            })
+            .collect())
+    }
+
+    async fn get_all_total_pectra_data_gas(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<crate::server::types::BatcherPectraDataGas>> {
+        let rows = sqlx::query(
+            "SELECT batcher_address, analysis_result FROM l2_batches_txs 
+             WHERE timestamp >= ? AND timestamp <= ? 
+             AND tx_hash != 'monitoring_state'",
+        )
+        .bind(start_timestamp)
+        .bind(end_timestamp)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut batcher_pectra_gas: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+
+        for row in rows {
+            let batcher_address: String = row.get("batcher_address");
+            let analysis_result: String = row.get("analysis_result");
+            if let Ok(analysis) = serde_json::from_str::<serde_json::Value>(&analysis_result) {
+                let eip_7623_calldata_gas = analysis["eip_7623_calldata_gas"].as_u64().unwrap_or(0);
+                *batcher_pectra_gas.entry(batcher_address).or_insert(0) += eip_7623_calldata_gas;
+            }
+        }
+
+        Ok(batcher_pectra_gas
+            .into_iter()
+            .map(|(batcher_address, total_pectra_data_gas)| {
+                crate::server::types::BatcherPectraDataGas {
+                    batcher_address,
+                    total_pectra_data_gas,
+                }
+            })
+            .collect())
     }
 }
 
