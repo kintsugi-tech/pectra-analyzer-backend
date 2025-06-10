@@ -1,15 +1,14 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-
+use crate::{
+    server::types::{
+        BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas,
+        DailyBatcherStats,
+    },
+    tracker::database::Database,
+};
 use chrono::Utc;
 use eyre::Result;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tracing::{error, info};
-
-use crate::server::types::{
-    BatcherBlobDataGas, BatcherDailyTxs, BatcherEthSaved, BatcherPectraDataGas, DailyBatcherStats,
-};
-use crate::tracker::database::Database;
 
 /// Start an infinite loop that creates and persists a daily snapshot of batcher metrics every 24 hours.
 ///
