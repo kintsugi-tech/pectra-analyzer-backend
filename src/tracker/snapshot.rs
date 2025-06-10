@@ -30,8 +30,12 @@ pub async fn start_snapshot_loop(db: Arc<dyn Database>) -> Result<()> {
 }
 
 async fn create_and_save_snapshot(db: Arc<dyn Database>) -> Result<()> {
-    let end_ts = Utc::now().timestamp();
-    let start_ts = end_ts - 60 * 60 * 24;
+    // Align to whole-day boundaries (UTC) so that restarts within 24 h don't change the key
+    // We always create the snapshot for the PREVIOUS day: [day_start, day_start + 86400)
+    let now_ts = Utc::now().timestamp();
+    let day_start_ts = (now_ts / 86_400) * 86_400; // midnight of current day UTC
+    let start_ts = day_start_ts - 86_400; // midnight of previous day UTC
+    let end_ts = day_start_ts - 1; // inclusive upper bound (23:59:59 of previous day)
 
     // Aggregate metrics for all batchers.
     let daily_txs: Vec<BatcherDailyTxs> = db.get_all_daily_transactions(start_ts, end_ts).await?;
@@ -70,7 +74,7 @@ async fn create_and_save_snapshot(db: Arc<dyn Database>) -> Result<()> {
             .total_pectra_data_gas = item.total_pectra_data_gas;
     }
 
-    let snapshot_ts = end_ts;
+    let snapshot_ts = start_ts;
 
     let mut stats_vec = Vec::with_capacity(map.len());
     for (batcher_address, s) in map {
