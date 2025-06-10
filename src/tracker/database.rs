@@ -118,7 +118,7 @@ pub trait Database: Send + Sync {
     async fn get_recent_daily_stats(
         &self,
         limit_per_batcher: i64,
-    ) -> Result<Vec<crate::server::types::DailyBatcherStats>>;
+    ) -> Result<Vec<DailyBatcherStats>>;
 }
 
 pub struct SqliteDatabase {
