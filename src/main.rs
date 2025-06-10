@@ -5,8 +5,10 @@ use pectralizer::{
     server::{
         AppState,
         handlers::{
-            blob_data_gas_handler, contract_handler, daily_txs_handler, eth_saved_handler,
-            pectra_data_gas_handler, root_handler, tx_handler,
+            all_blob_data_gas_handler, all_daily_txs_handler, all_eth_saved_handler,
+            all_pectra_data_gas_handler, blob_data_gas_handler, contract_handler,
+            daily_txs_handler, eth_saved_handler, pectra_data_gas_handler, root_handler,
+            tx_handler,
         },
     },
     tracker::{
@@ -110,6 +112,10 @@ async fn main() -> eyre::Result<()> {
         .route("/eth_saved", get(eth_saved_handler))
         .route("/blob_data_gas", get(blob_data_gas_handler))
         .route("/pectra_data_gas", get(pectra_data_gas_handler))
+        .route("/all_daily_txs", get(all_daily_txs_handler))
+        .route("/all_eth_saved", get(all_eth_saved_handler))
+        .route("/all_blob_data_gas", get(all_blob_data_gas_handler))
+        .route("/all_pectra_data_gas", get(all_pectra_data_gas_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state.clone());
 
@@ -120,13 +126,19 @@ async fn main() -> eyre::Result<()> {
     info!("📡 Ethereum provider configured");
     info!("🌐 Server listening on http://0.0.0.0:{}", port);
     info!("📝 Available endpoints:");
+    info!("   Individual Batcher Endpoints:");
     info!("   - GET  /           - Welcome message");
     info!("   - GET  /tx         - Transaction analysis");
     info!("   - GET  /contract   - Contract analysis");
-    info!("   - GET  /daily_txs  - Daily transactions analysis");
-    info!("   - GET  /eth_saved  - Ethereum saved analysis");
-    info!("   - GET  /blob_data_gas - Blob data gas analysis");
-    info!("   - GET  /pectra_data_gas - Pectra data gas analysis");
+    info!("   - GET  /daily_txs  - Daily transactions analysis (specific batcher)");
+    info!("   - GET  /eth_saved  - Ethereum saved analysis (specific batcher)");
+    info!("   - GET  /blob_data_gas - Blob data gas analysis (specific batcher)");
+    info!("   - GET  /pectra_data_gas - Pectra data gas analysis (specific batcher)");
+    info!("   Aggregated Endpoints (All Batchers):");
+    info!("   - GET  /all_daily_txs - Daily transactions for all batchers");
+    info!("   - GET  /all_eth_saved - ETH saved data for all batchers");
+    info!("   - GET  /all_blob_data_gas - Blob data gas for all batchers");
+    info!("   - GET  /all_pectra_data_gas - Pectra data gas for all batchers");
 
     // run both services concurrently
     tokio::select! {
