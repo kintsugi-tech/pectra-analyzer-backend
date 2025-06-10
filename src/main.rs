@@ -145,6 +145,7 @@ async fn main() -> eyre::Result<()> {
     info!("   - GET  /all_eth_saved - ETH saved data for all batchers");
     info!("   - GET  /all_blob_data_gas - Blob data gas for all batchers");
     info!("   - GET  /all_pectra_data_gas - Pectra data gas for all batchers");
+    info!("   - GET  /seven_day_stats - Last 7-day snapshot series for all batchers");
 
     // run both services concurrently
     tokio::select! {
