@@ -1,18 +1,32 @@
 use alloy_chains::NamedChain;
-use alloy_primitives::Bytes;
+use alloy_primitives::TxHash;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::de::Error;
+use serde::{Deserialize, Deserializer};
 use tracing::warn;
 
 /// The url of the blob provider, aka blobscan.
-const MAINNET_BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/blobs/";
-const SEPOLIA_BLOB_PROVIDER_URL: &str = "https://api.sepolia.blobscan.com/blobs/";
+const MAINNET_BLOB_PROVIDER_URL: &str = "https://api.blobscan.com/transactions/";
+const SEPOLIA_BLOB_PROVIDER_URL: &str = "https://api.sepolia.blobscan.com/transactions/";
+
+/// Custom deserializer to convert string to u64
+fn deserialize_string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<u64>().map_err(D::Error::custom)
+}
 
 /// The data of the blob.
 #[derive(Debug, Deserialize)]
 pub struct BlobData {
-    /// The data field of the blob.
-    pub data: Bytes,
+    /// The amount of gas used that would have been used to store the blob data as calldata.
+    #[serde(
+        rename = "blobAsCalldataGasUsed",
+        deserialize_with = "deserialize_string_to_u64"
+    )]
+    pub blob_as_calldata_gas_used: u64,
 }
 
 /// The provider of the blobs.
@@ -44,9 +58,9 @@ impl BlobProvider {
         }
     }
 
-    /// Make a blob request to the provider providing the blob versioned hash.
-    pub async fn get_blob_data(&self, blob_versioned_hash: &str) -> eyre::Result<BlobData> {
-        let url = format!("{}{}", self.endpoint, blob_versioned_hash);
+    /// Make a blob request to the provider providing the transaction hash.
+    pub async fn get_blob_data(&self, tx_hash: &TxHash) -> eyre::Result<BlobData> {
+        let url = format!("{}{}", self.endpoint, tx_hash);
         let response = self.client.get(url).send().await?;
         let blob_data: BlobData = response.json().await?;
         Ok(blob_data)
