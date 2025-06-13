@@ -10,7 +10,10 @@ use super::{
 use crate::{
     provider::ProviderState,
     server::types::{AllBatchersSevenDayStatsResponse, BatcherSevenDayStats},
-    utils::{BASE_STIPEND, BYTES_PER_BLOB, compute_calldata_gas, compute_legacy_calldata_gas},
+    utils::{
+        BASE_STIPEND, BYTES_PER_BLOB, ISTANBUL_BLOCK_NUMBER, compute_calldata_gas,
+        compute_legacy_calldata_gas,
+    },
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Address, FixedBytes, hex::FromHex};
@@ -71,25 +74,24 @@ pub async fn analyze_transaction(
     if tx.is_eip4844() {
         let blob_gas_used = tx.blob_gas_used().unwrap(); // safe unwrap as it's an eip4844 tx
         let blob_gas_price = receipt.blob_gas_price.unwrap(); // safe unwrap as it's an eip4844 tx
-        let blob_data = tx.blob_versioned_hashes().unwrap(); // safe unwrap as it's an eip4844 tx
-        // get blob data
-        let mut total_legacy_calldata_gas = 0;
-        let mut total_eip_7623_calldata_gas = 0;
-        for blob_versioned_hash in blob_data {
-            let blob_data = provider_state
-                .blob_provider
-                .get_blob_data(&blob_versioned_hash.to_string())
-                .await
-                .map_err(|e| {
-                    HandlerError::ProviderError(format!("Failed to get blob data: {}", e))
-                })?;
-            // compute old calldata cost with the pre eip-7623 formula
-            let legacy_calldata_cost =
-                compute_legacy_calldata_gas(&blob_data.data, block.header.number);
-            total_legacy_calldata_gas += legacy_calldata_cost;
-            // also compute new calldata cost with the eip-7623 formula
-            let eip7623_calldata_cost = compute_calldata_gas(&blob_data.data, block.header.number);
-            total_eip_7623_calldata_gas += eip7623_calldata_cost;
+        // get blob data from blobscan
+        let total_legacy_calldata_gas;
+        let total_eip_7623_calldata_gas;
+        let blob_data = provider_state
+            .blob_provider
+            .get_blob_data(&tx_hash_bytes)
+            .await
+            .map_err(|e| HandlerError::ProviderError(format!("Failed to get blob data: {}", e)))?;
+        if block.header.number < ISTANBUL_BLOCK_NUMBER {
+            // pre Pectra, so pre EIP-7623
+            total_legacy_calldata_gas = blob_data.blob_as_calldata_gas_used;
+            total_eip_7623_calldata_gas =
+                total_legacy_calldata_gas + (total_legacy_calldata_gas as f64 * 0.6) as u64;
+        } else {
+            // post Pectra, so post EIP-7623
+            total_eip_7623_calldata_gas = blob_data.blob_as_calldata_gas_used;
+            total_legacy_calldata_gas =
+                total_eip_7623_calldata_gas - (total_eip_7623_calldata_gas as f64 * 0.6) as u64;
         }
         // compute wei spent in different configurations
         let blob_data_wei_spent = blob_gas_used as u128 * blob_gas_price;

@@ -5,7 +5,7 @@ use revm::interpreter::gas::get_tokens_in_calldata;
 /// This is taken from the EIP-7623 spec.
 const TOTAL_COST_FLOOR_PER_TOKEN: u64 = 10;
 /// The block number of the istanbul hard fork on Ethereum mainnet.
-const ISTANBUL_BLOCK_NUMBER: u64 = 9_069_000;
+pub const ISTANBUL_BLOCK_NUMBER: u64 = 9_069_000;
 /// The base stipend for the calldata.
 pub const BASE_STIPEND: u64 = 21000;
 /// The size of a blob in bytes.
